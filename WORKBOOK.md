@@ -80,12 +80,38 @@ Four of six predictions confirmed. Two were **not tested** — which is differen
 | 2 | Missing usage description crashes at authorisation time, not build time | **Confirmed** — tested deliberately, see the sabotage test below |
 | 3 | `isHealthDataAvailable()` true on both devices | **Confirmed** on both |
 | 4 | Authorisation sheet appears on the watch | **Confirmed** |
-| 5 | `requestAuthorization` succeeds even when the user denies; `authorizationStatus` only meaningful for share types | **Half tested** — the share type reported `sharing authorized`, consistent with the claim, but nothing was denied, so the interesting half is unverified |
+| 5 | `requestAuthorization` succeeds even when the user denies; `authorizationStatus` only meaningful for share types | **Confirmed** — tested by deliberate denial, see below |
 | 6 | The day's time sink is provisioning and signing, not HealthKit | **Strongly confirmed** — three consecutive blockers, all account/provisioning, zero HealthKit |
 
 **What I actually learned, beyond the score:** the mental model that needed correcting wasn't about HealthKit at all. It was that "get an app onto a watch" is a multi-stage negotiation with Apple's account infrastructure — licence agreement, device registration, profile generation — and each stage fails with an error naming a *different* layer than the one you are in. Prediction 6 was the cheapest prediction to make and turned out to be the most useful.
 
 Prediction 5 is worth closing properly before L1 ends: deny a read permission deliberately and confirm the call still reports success. It is thirty seconds and it converts an inherited belief into a tested one.
+
+### Amendment — prediction 5, tested by deliberate denial
+
+**Method.** Turned Heart Rate **off** under Settings → Health → Data Access & Devices → HyroxCoach, leaving Workouts **on**. Relaunched the watch app with the previous instance terminated, then re-ran authorisation and E1.0b.
+
+**Result.**
+
+| Observation | Outcome |
+|---|---|
+| `requestAuthorization` after denial | Reported success. No error, no exception, no indication anything had been refused. |
+| Heart rate query | **Zero samples.** No error raised — an empty set, identical in every observable way to "this device has no heart-rate data". |
+| Workouts query | Still returned samples, as expected, since that permission was left on. |
+
+**Prediction 5 is confirmed.** Read denial is genuinely invisible from inside the app: it produces neither an error nor a distinguishable signal, only an empty result.
+
+**But a prediction made during this test was WRONG, and it is the more useful finding.**
+
+I expected E1.0b's overall verdict to flip to INCONCLUSIVE once heart rate was denied. It stayed **CONFIRMED** — because the probe runs two queries and collapses them into a single aggregate verdict. Workouts still returned data, so the summary reported success while the heart-rate denial sat underneath it, invisible.
+
+**So the probe built to catch over-claiming was itself over-claiming.** E1.0's original PASS hid the fact that it never tested read access; E1.0b's CONFIRMED hides the fact that one of its two queries returned nothing. Same error, one level up, committed while explicitly trying to avoid it.
+
+**Design flaw, stated plainly:** an aggregate verdict over multiple independent checks masks any individual failure. A per-type verdict — heart rate CONFIRMED/INCONCLUSIVE, workouts CONFIRMED/INCONCLUSIVE, reported separately — carries the information the aggregate destroys.
+
+**Why this matters beyond E1.0.** This is the third instance in L1 of a result that reported success while the interesting failure hid inside it. It is the same shape as every row in the failure log: the signal surfaces at one level, the cause sits at another. The lesson for L4 is direct — "the sync worked" will be an aggregate over several things that can each fail independently, and a single green verdict there will hide exactly as much as this one did.
+
+---
 
 ### Amendment — prediction 2, tested deliberately
 
@@ -262,7 +288,8 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 | Experiment | Prediction held? | Note |
 |---|---|---|
-| E1.0 | 5 confirmed, 1 half-tested | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
+| E1.0 | 6 of 6 confirmed | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
+| P5 | Confirmed by denial test | Denial is invisible: no error, empty result. My side-prediction that E1.0b would flip to INCONCLUSIVE was WRONG — aggregate verdict masked it. |
 | P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | | |
