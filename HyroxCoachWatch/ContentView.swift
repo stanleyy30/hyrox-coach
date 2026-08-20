@@ -21,8 +21,13 @@ struct ContentView: View {
                     Task { _ = await healthKitAuth.writeAndReadBackSample() }
                 }
                 .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
+                Button("E1.0b Read foreign data") {
+                    Task { _ = await healthKitAuth.readForeignSamples() }
+                }
+                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
                 Text(healthKitAuth.authorizationResult)
                 Text(healthKitAuth.roundTripResult)
+                Text(healthKitAuth.foreignReadResult)
             }
 
             Section("E1.1 No session") {
