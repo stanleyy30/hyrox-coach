@@ -87,6 +87,20 @@ Four of six predictions confirmed. Two were **not tested** — which is differen
 
 Prediction 5 is worth closing properly before L1 ends: deny a read permission deliberately and confirm the call still reports success. It is thirty seconds and it converts an inherited belief into a tested one.
 
+### Amendment — E1.0b, added after the fact
+
+**Why this was added.** Reviewing the E1.0 result exposed a flaw in what the PASS actually evidenced. The round trip wrote a sample and read back *the same sample it had just written* — and HealthKit always permits an app to read its own written data regardless of read authorisation. So `PASS: wrote and read back sample UUID …` proved **write access and self-read only**. It was not evidence of read access at all, despite reading like it was.
+
+**The probe.** `readForeignSamples()` queries heart rate and workouts while excluding this app's own `HKSource`, so any result is data the app did not write. The outcome is deliberately asymmetric and the probe says so in its own output:
+- non-empty → **CONFIRMED**, read access is real
+- empty → **INCONCLUSIVE**, because HealthKit makes read-denied and no-data-present indistinguishable
+
+**Result, 2026-08-20:** **CONFIRMED.** Foreign samples were read successfully, so read authorisation is genuinely granted — consistent with the iPhone's Health → Data Access screen, which showed all four read types enabled.
+
+**What this changes about the E1.0 entry.** The original PASS stands, but it was over-claimed at the moment it was written: it evidenced less than it appeared to. Read access is now separately evidenced. Prediction 5 remains **half tested** — the deny path is still unexercised, and granting everything is exactly the condition under which the interesting half stays invisible.
+
+**The transferable lesson, which is the actual finding here.** A test that passes is not automatically evidence of the thing you wanted to test. This one passed for a reason unrelated to the question being asked, and nothing in the green result would have revealed that. Worth carrying into L4, where "the data arrived" will be similarly tempting to read as "the transport is reliable" — when it may only mean the phone happened to be in range.
+
 ---
 
 ## E1.1 — Baseline: what happens WITHOUT a workout session?
@@ -229,7 +243,8 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 | Experiment | Prediction held? | Note |
 |---|---|---|
-| E1.0 | 4 confirmed, 1 half-tested, 1 untested | Round trip PASSED. Prediction 6 (provisioning is the time sink) was the strongest hit. |
+| E1.0 | 4 confirmed, 1 half-tested, 1 untested | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
+| E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | | |
 | E1.2 | | |
 | E1.3 | | |
