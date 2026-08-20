@@ -77,7 +77,7 @@ Four of six predictions confirmed. Two were **not tested** — which is differen
 | # | Prediction | Outcome |
 |---|---|---|
 | 1 | HealthKit capability needed on both targets separately | **Confirmed** — set in `project.yml` for both; the generated project carries it twice |
-| 2 | Missing usage description crashes at authorisation time, not build time | **Not tested** — both plists had the descriptions from the start, so the failure mode never fired |
+| 2 | Missing usage description crashes at authorisation time, not build time | **Confirmed** — tested deliberately, see the sabotage test below |
 | 3 | `isHealthDataAvailable()` true on both devices | **Confirmed** on both |
 | 4 | Authorisation sheet appears on the watch | **Confirmed** |
 | 5 | `requestAuthorization` succeeds even when the user denies; `authorizationStatus` only meaningful for share types | **Half tested** — the share type reported `sharing authorized`, consistent with the claim, but nothing was denied, so the interesting half is unverified |
@@ -86,6 +86,25 @@ Four of six predictions confirmed. Two were **not tested** — which is differen
 **What I actually learned, beyond the score:** the mental model that needed correcting wasn't about HealthKit at all. It was that "get an app onto a watch" is a multi-stage negotiation with Apple's account infrastructure — licence agreement, device registration, profile generation — and each stage fails with an error naming a *different* layer than the one you are in. Prediction 6 was the cheapest prediction to make and turned out to be the most useful.
 
 Prediction 5 is worth closing properly before L1 ends: deny a read permission deliberately and confirm the call still reports success. It is thirty seconds and it converts an inherited belief into a tested one.
+
+### Amendment — prediction 2, tested deliberately
+
+**Method.** Removed `NSHealthShareUsageDescription` from the watch `Info.plist` with `plutil -remove`, rebuilt, installed to the watch, and tapped authorise. Restored afterwards with `git checkout`.
+
+**Result — both halves of the prediction hold.**
+
+| Claim | Outcome |
+|---|---|
+| The build still succeeds with the key missing | **Confirmed.** `BUILD SUCCEEDED`, no error, **no warning**. The bundle shipped without the key and nothing complained. |
+| Authorisation crashes rather than returning a catchable error | **Confirmed.** Instant termination the moment authorise was tapped. No sheet, no error string, no `catch` block reached. |
+
+**Why this matters more than it looks.** The `requestAuthorization` call sits inside a `do/catch` that logs failures — and that `catch` is useless here. The process is killed before it can run, so no amount of defensive Swift makes a missing plist key recoverable. The only defence is configuration being right in the first place.
+
+**The diagnostic signature.** A HealthKit app that builds cleanly and dies instantly on the permission tap is almost certainly missing a usage description. Nothing in the build output, the crash timing, or the code points at the plist — it presents as a code bug in the authorisation path, which is where the time gets wasted looking.
+
+This is the same symptom-versus-cause gap that runs through this cycle's failure log: the error surfaces in one layer, the cause sits in another.
+
+---
 
 ### Amendment — E1.0b, added after the fact
 
@@ -243,7 +262,8 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 | Experiment | Prediction held? | Note |
 |---|---|---|
-| E1.0 | 4 confirmed, 1 half-tested, 1 untested | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
+| E1.0 | 5 confirmed, 1 half-tested | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
+| P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | | |
 | E1.2 | | |
