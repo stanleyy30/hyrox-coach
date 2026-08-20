@@ -1,0 +1,57 @@
+name: HyroxCoach
+
+options:
+  bundleIdPrefix: com.stanleyyoung
+  deploymentTarget:
+    iOS: "17.0"
+    watchOS: "10.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    GENERATE_INFOPLIST_FILE: "NO"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  HyroxCoach:
+    type: application
+    platform: iOS
+    sources:
+      - HyroxCoach
+      - Shared
+    settings:
+      base:
+        INFOPLIST_FILE: HyroxCoach/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HyroxCoach/HyroxCoach.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.stanleyyoung.HyroxCoach
+    dependencies:
+      - target: HyroxCoachWatch
+        embed: true
+
+  HyroxCoachWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - HyroxCoachWatch
+      - Shared
+    settings:
+      base:
+        INFOPLIST_FILE: HyroxCoachWatch/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HyroxCoachWatch/HyroxCoachWatch.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.stanleyyoung.HyroxCoach.watchkitapp
+
+schemes:
+  HyroxCoach:
+    build:
+      targets:
+        HyroxCoach: all
+    run:
+      config: Debug
+  HyroxCoachWatch:
+    build:
+      targets:
+        HyroxCoachWatch: all
+    run:
+      config: Debug
