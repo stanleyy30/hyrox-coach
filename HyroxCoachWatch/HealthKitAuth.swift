@@ -107,6 +107,8 @@ final class HealthKitAuth: ObservableObject {
     }
 
     // Reading samples written by this app proves only self-read, not that HealthKit granted read access.
+    // An aggregate verdict over independent checks masks individual failures; on device, denied
+    // heart-rate read permission was hidden by a permitted workouts query, so each type is reported.
     func readForeignSamples() async -> String {
         guard isAvailable else {
             let result = "Health data is unavailable"
@@ -139,9 +141,9 @@ final class HealthKitAuth: ObservableObject {
             )
 
             let result = [
-                summary(label: "Heart rate", samples: heartRateSamples),
-                summary(label: "Workouts", samples: workoutSamples),
-                interpretation(hasForeignSamples: !heartRateSamples.isEmpty || !workoutSamples.isEmpty)
+                summary(label: "HEART RATE", samples: heartRateSamples),
+                summary(label: "WORKOUTS", samples: workoutSamples),
+                interpretation(sampleSets: [heartRateSamples, workoutSamples])
             ].joined(separator: "\n")
             foreignReadResult = result
             AppLog.health.info("\(AppLog.stamp(), privacy: .public) E1.0b foreign-data probe completed: \(result, privacy: .public)")
@@ -181,16 +183,24 @@ final class HealthKitAuth: ObservableObject {
 
     private func summary(label: String, samples: [HKSample]) -> String {
         let sourceNames = Set(samples.map { $0.sourceRevision.source.name }).sorted()
-        let sources = sourceNames.isEmpty ? "none" : sourceNames.joined(separator: ", ")
-        let mostRecent = samples.first.map { $0.startDate.formatted(date: .abbreviated, time: .shortened) } ?? "none"
-        return "\(label): \(samples.count) foreign samples\nSources: \(sources)\nMost recent: \(mostRecent)"
+        guard let mostRecent = samples.first else {
+            return "\(label): INCONCLUSIVE — 0 foreign samples; sources: none."
+        }
+
+        let sources = sourceNames.joined(separator: ", ")
+        let date = mostRecent.startDate.formatted(date: .abbreviated, time: .shortened)
+        return "\(label): CONFIRMED — \(samples.count) foreign samples from \(sources); latest \(date)."
     }
 
-    private func interpretation(hasForeignSamples: Bool) -> String {
-        if hasForeignSamples {
-            return "CONFIRMED: Read access is confirmed because data written by another source was successfully read."
+    private func interpretation(sampleSets: [[HKSample]]) -> String {
+        let typesWithForeignSamples = sampleSets.filter { !$0.isEmpty }.count
+        if typesWithForeignSamples == sampleSets.count {
+            return "OVERALL: CONFIRMED — Every type returned foreign samples."
         }
-        return "INCONCLUSIVE: No foreign samples were found. HealthKit makes read-denied indistinguishable from no data present, so this cannot distinguish permission denied from no such data on this device."
+        if typesWithForeignSamples > 0 {
+            return "OVERALL: MIXED — At least one type returned nothing. An empty result cannot distinguish permission denied from no data present."
+        }
+        return "OVERALL: INCONCLUSIVE — No type returned foreign samples. HealthKit makes read-denied indistinguishable from no data present."
     }
 
     private func readSample(uuid: UUID, type: HKSampleType) async throws -> HKSample? {
