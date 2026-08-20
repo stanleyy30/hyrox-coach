@@ -28,7 +28,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | ▶ IN PROGRESS |
+| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | ▶ E1.0 PASSED · E1.1 next |
 | L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
@@ -62,11 +62,30 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 **Actual result**
 
-<!-- after the test -->
+*Run 2026-08-20, ~11:03, Apple Watch Ultra 3 (watchOS 26.6), iPhone 16 Pro Max (iOS 26.6.1), Xcode 26.6.*
+
+- **PASS.** Round trip succeeded: wrote 1 kcal `activeEnergyBurned`, read it back, sample UUID `1F3508E0-D277-4395-BF3F-911E95CDE0DA`.
+- Authorisation reported: *"Request completed; workout share status: sharing authorized"*.
+- The authorisation sheet appeared **on the watch**.
+- `isHealthDataAvailable()` returned true on the iPhone (confirmed on the iOS screen) and the watch round trip proves it on the watch.
+- Getting to this point took **three separate provisioning obstacles**, none of them HealthKit: an unaccepted Program License Agreement, devices not connected/trusted, then devices not registered to the team. No HealthKit code executed until all three were cleared.
 
 **The gap**
 
-<!-- after the test -->
+Four of six predictions confirmed. Two were **not tested** — which is different from being right, and is recorded as untested rather than quietly counted as a win.
+
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | HealthKit capability needed on both targets separately | **Confirmed** — set in `project.yml` for both; the generated project carries it twice |
+| 2 | Missing usage description crashes at authorisation time, not build time | **Not tested** — both plists had the descriptions from the start, so the failure mode never fired |
+| 3 | `isHealthDataAvailable()` true on both devices | **Confirmed** on both |
+| 4 | Authorisation sheet appears on the watch | **Confirmed** |
+| 5 | `requestAuthorization` succeeds even when the user denies; `authorizationStatus` only meaningful for share types | **Half tested** — the share type reported `sharing authorized`, consistent with the claim, but nothing was denied, so the interesting half is unverified |
+| 6 | The day's time sink is provisioning and signing, not HealthKit | **Strongly confirmed** — three consecutive blockers, all account/provisioning, zero HealthKit |
+
+**What I actually learned, beyond the score:** the mental model that needed correcting wasn't about HealthKit at all. It was that "get an app onto a watch" is a multi-stage negotiation with Apple's account infrastructure — licence agreement, device registration, profile generation — and each stage fails with an error naming a *different* layer than the one you are in. Prediction 6 was the cheapest prediction to make and turned out to be the most useful.
+
+Prediction 5 is worth closing properly before L1 ends: deny a read permission deliberately and confirm the call still reports success. It is thirty seconds and it converts an inherited belief into a tested one.
 
 ---
 
@@ -196,7 +215,10 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 | Date | Symptom | Looked like | Actually was | Fix |
 |---|---|---|---|---|
-| Aug 20 | `xcodebuild` refuses to run; no iOS/watchOS SDKs listed | Xcode not installed | Xcode IS installed at /Applications/Xcode.app, but `xcode-select` pointed at the Command Line Tools instance instead | `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` (needs Stanley's password) |
+| Aug 20 | `xcodebuild` refuses to run; no iOS/watchOS SDKs listed | Xcode not installed | Xcode IS installed at /Applications/Xcode.app, but `xcode-select` pointed at the Command Line Tools instance instead | `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` |
+| Aug 20 | "No profiles for 'com.stanleyyoung.HyroxCoach.watchkitapp' were found" | Bundle ID or signing config wrong | Program License Agreement was unaccepted on the developer account, so the team could not issue any profile at all | Accept the updated PLA at developer.apple.com/account |
+| Aug 20 | Same "no profiles" error, after the PLA was accepted | Still a signing config problem | Team had **no registered devices**; a development profile must name specific devices | Connect and trust iPhone, register both devices with the team |
+| Aug 20 | "Your team has no devices" even with both devices connected | Devices not detected by the Mac | They *were* detected — but `generic/platform=watchOS` names no specific device, so there was nothing concrete to register | Build against `platform=watchOS,id=<device-id>` instead of the generic destination |
 | | | | | |
 
 **Note on the first row:** this is exactly the class of failure L1 is about — the symptom pointed at one layer (no Xcode) and the cause was in another (toolchain selection). Worth keeping as the template for how rows in this table should read.
@@ -207,7 +229,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 | Experiment | Prediction held? | Note |
 |---|---|---|
-| E1.0 | | |
+| E1.0 | 4 confirmed, 1 half-tested, 1 untested | Round trip PASSED. Prediction 6 (provisioning is the time sink) was the strongest hit. |
 | E1.1 | | |
 | E1.2 | | |
 | E1.3 | | |
