@@ -28,7 +28,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | ▶ E1.0 ✔ · E1.1 ✔ · **E1.2 next (GATE)** |
+| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **GATE PASSED** · E1.0 ✔ E1.1 ✔ E1.2 ✔ · E1.3 next |
 | L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
@@ -216,13 +216,46 @@ Setup: same app, but start an `HKWorkoutSession` + `HKLiveWorkoutBuilder` first.
 4. Battery drain will be noticeable but not prohibitive over 15 minutes.
 5. Risk I am least sure about: whether the app is fully *running* or merely *not terminated*. It may be that timers still fire but UI updates are throttled. If so, anything I compute from tick counting is unreliable and I must compute from timestamps instead.
 
-**Actual result**
+**Actual result — GATE PASSED**
 
-<!-- -->
+*Run 2026-08-21, ending ~09:44. Apple Watch Ultra 3 (watchOS 26.6). Always-On Display OFF, launched from the watch, no debugger. Same conditions as E1.1.*
+
+| Reading | Value |
+|---|---|
+| Session state | `Workout running` / `Workout collection running` |
+| Ticks recorded | 1,134 |
+| Elapsed **by counting ticks** | 1,134.0 s |
+| Elapsed **from stored start `Date`** | 1,149.0 s |
+| **Divergence** | **15.0 s** |
+| Heart rate, screen off | **84 bpm**, arriving live |
+| Duration | ~19 minutes |
+
+**Direct comparison against the E1.1 baseline, run under identical conditions:**
+
+| | No session (E1.1) | Workout session (E1.2) |
+|---|---|---|
+| Real elapsed | 97.0 s | 1,149.0 s |
+| Counted by ticks | 20.0 s | 1,134.0 s |
+| Time lost | 77.0 s | 15.0 s |
+| **Proportion lost** | **79.4 %** | **1.3 %** |
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Logging continues *uninterrupted* for the full duration | **Mostly confirmed, and usefully wrong in detail.** It continued, but not uninterrupted — 15 seconds of ticks were still lost. |
+| 2 | Heart rate arrives via the live builder without the screen on | **Confirmed** — 84 bpm with the screen off |
+| 3 | `activityType` does not affect whether the session stays alive | **Untested** — only `.crossTraining` was used |
+| 4 | Battery drain noticeable but not prohibitive | **Untested** — not measured |
+| 5 | Least confident: the app may be *not terminated* rather than *fully running*, with timers throttled | **Confirmed** — this is exactly what the 15 s shortfall shows |
+
+**The headline answer to L1's question.** An `HKWorkoutSession` is what keeps the app executing while the wrist is down and the screen is off. Without it the app lost 79% of elapsed time; with it, 1.3%. That is the difference between an app that records a workout and one that merely appears to.
+
+**The more interesting result is that 15 seconds, not the pass.** Prediction 5 — the one flagged as least confident — was right. A workout session prevents *suspension*; it does not guarantee a timer fires every second. The process stays alive while individual ticks are still coalesced or dropped.
+
+So the architectural rule from E1.1 is not softened by this result, it is **reinforced**: durations must come from stored timestamps even *with* an active workout session. Tick-counting under a session is wrong by roughly 1.3% — about 15 seconds over 19 minutes. On a 4-minute sled push that is a 3-second error, silently, with no way to detect it from inside the app.
+
+**Which is the same shape as everything else in this cycle.** "Workout running" is a green signal that means the session is alive. It does not mean every tick fired. Believing the stronger claim because the weaker one is true is precisely the error the rest of L1 documented.
 
 ---
 
@@ -325,5 +358,5 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
-| E1.2 | | |
+| E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.3% lost vs 79.4% without a session. The 15 s shortfall confirms timers are still throttled. |
 | E1.3 | | |
