@@ -374,6 +374,27 @@ No new work. Presentation prep, evidence assembly, rehearsal.
 
 ---
 
+# L1 VERIFICATION PASS — 2026-08-21
+
+An independent consistency check of every recorded L1 number, run against the source code rather than against the photographs. This does **not** re-run the experiments; it checks whether the recorded data is internally coherent and consistent with what the code can produce.
+
+**Code model confirmed.** Both probes use `Timer.scheduledTimer(withTimeInterval: 1, repeats: true)`, and `elapsedByTicks` accumulates per tick while `elapsedByDate` is computed from a stored `startDate`. So one tick must equal exactly 1.0 s of counted time, and the two figures are genuinely independent measures rather than two views of the same counter.
+
+| Check | Result |
+|---|---|
+| Ticks equal counted seconds — E1.1, E1.2 A, E1.2 B | PASS (20/20.0, 1134/1134.0, 1610/1610.0) |
+| Divergence arithmetic — all three readings | PASS (77.0, 15.0, 20.0 s) |
+| Proportion lost — all three readings | PASS (79.38 %, 1.305 %, 1.227 %) |
+| Inter-reading window A→B: 481 s elapsed, 476 ticks | PASS — 5.0 s lost, 1.04 % |
+| Extrapolation to a 90-minute race at reading B's rate | PASS — 66.3 s |
+| E1.3: start 10:19:35 against recovery at ~10:21 | PASS — ~85 s, consistent with a force-quit and relaunch |
+
+**Verdict: all consistent.** No arithmetic error, and no figure that the code could not have produced.
+
+**What this verification does NOT establish.** It confirms the recorded numbers are coherent. It cannot confirm they were observed under the stated conditions — that Always-On was off, that no debugger was attached, that the wrist was actually down. Those are physical facts about the room, evidenced only by the photographs and by Stanley's account of them. A consistency check cannot substitute for a witness, and claiming otherwise would repeat this cycle's central error at the level of the record itself.
+
+---
+
 # RUNNING FAILURE LOG
 
 Every bug, with the symptom, the layer it *appeared* to be in, and the layer the cause was *actually* in. The mismatches are the most valuable rows.
