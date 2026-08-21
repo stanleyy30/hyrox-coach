@@ -29,7 +29,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
+| L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | ▶ predictions written · E2.0 next |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D8–D9 | Aug 27–28 | What can this data honestly say, and what can it not? | — |
@@ -460,10 +460,101 @@ A seventh belongs to the record-keeping rather than the tooling: E1.3's first fa
 
 **Learning question:** What has to be true for a workout to survive the app dying?
 
-Experiments to be defined at the start of L2. Provisional:
-- E2.1 — State machine v1 on paper: which states, which transitions, which awkward paths?
-- E2.2 — Persist on every transition; kill the app mid-station; what is missing on relaunch?
-- E2.3 — Reconcile recovered HealthKit session with recovered semantic state.
+**Opened 2026-08-21. All predictions below were written before any L2 code was created.**
+
+**L1 changed this cycle's shape.** The plan was to design persist-on-transition and call recovery on launch. E1.3 showed recovery *reliably fails* in the crash-like case, so a prior question has to be answered first: what actually happens to a watch app that dies mid-workout? E2.0 exists to answer that, and everything after it depends on the answer.
+
+---
+
+## E2.0 — What actually happens when the app dies mid-workout?
+
+*This is the question E1.3 left open. It must be answered before persistence is designed.*
+
+Setup: start a workout session, kill the app several ways — force-quit gesture, and a deliberate crash (`fatalError`) — then observe. Does the process come back? When? In what state? Is an endpoint already registered when the user reopens it?
+
+**My prediction**
+
+1. **Force-quit does not really kill it.** An app holding an active `HKWorkoutSession` is relaunched by the system in the background to sustain the session. This is the hypothesis that explains E1.3's three-state sequence, and it is the single most important thing to confirm or kill.
+2. Because of #1, by the time the user reopens the app, an instance already exists and its endpoint is registered — which is why recovery reports "already exists" rather than handing the session back.
+3. **A deliberate crash may behave differently from a force-quit.** A force-quit is a user gesture the system may treat as "keep the workout"; a crash is a fault. If they differ, the crash case is the one that matters, since it is what actually happens in the field.
+4. `recoverActiveWorkoutSession` will therefore need to tolerate the conflict — either by retrying, or by detecting that the process already holds a session and using that instead of recovering.
+5. **Lowest confidence in this cycle.** All of the above is inference from one reproducible symptom, not from documentation. I expect at least one of these to be wrong.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E2.1 — The state machine, on paper before in code
+
+Setup: draw the HYROX session as typed states and transitions. Deliberately a design artifact, not code. Kept in two versions — before implementation and after — because the diff is the learning.
+
+**My prediction**
+
+1. The happy path is small: `idle → run(leg n) → transition → station(n) → transition → run(leg n+1) → … → complete`. Roughly five state *kinds*, repeated sixteen times.
+2. **The awkward paths will outnumber the happy path.** Pause, resume, interruption by a call, app death, accidental advance, ending mid-station. I expect the recovery and correction logic to be larger than the logic that runs when nothing goes wrong.
+3. **Accidental advance will be the hardest to model.** Undoing a mis-tap means restoring the previous state *and* its timestamps, so the machine needs history, not just a current state.
+4. Every state must carry a **start timestamp**, never an accumulating duration — a direct consequence of L1's measured rule.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E2.2 — Persist on every transition, then kill it
+
+Setup: write semantic state to disk at every transition. Kill the app mid-station. Relaunch. Compare what was restored against what was true at the moment of death.
+
+**My prediction**
+
+1. Writing on every transition is cheap. A HYROX race has ~17 transitions in ~90 minutes, not one per second, so cost is irrelevant and there is no reason to batch.
+2. **Nothing meaningful is lost, provided timestamps are persisted rather than durations.** If the file records "station 3 started at 10:19:35", elapsed time is recomputable at any later moment. If it records "station 3 has run for 47 seconds", everything after the last write is lost. This is L1's rule applied to storage.
+3. **The write must be atomic.** A crash during a write corrupts the file, and a corrupt file is worse than a missing one, because a missing file is obviously missing. Write to a temp file and rename.
+4. What *is* genuinely lost: any transition that happened between the last successful write and the death. With per-transition writes that window is one transition at most.
+5. I expect the first implementation to fail on relaunch for a boring reason — a decoding error or a missing file on first run — rather than anything conceptually interesting.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E2.3 — Reconcile HealthKit's record with mine
+
+Setup: after a recovery, compare the recovered session's `startDate` against the persisted semantic state's session start. Decide, in writing, which wins when they disagree.
+
+**My prediction**
+
+1. **They will not match exactly.** My state file is written a moment after the session starts, so I expect a difference of well under a second — but non-zero.
+2. Under the source-of-truth policy: **HealthKit is authoritative for the session envelope** (start, end, heart rate, energy) and **I am authoritative for what happened inside it** (station identity, transition boundaries, notes).
+3. Therefore station boundaries should be stored as **offsets from HealthKit's `startDate`**, not as independent absolute times. That way the two records cannot drift apart, and there is nothing to reconcile.
+4. If prediction 3 holds, "reconciliation" mostly disappears as a problem — which would be a better outcome than solving it, and is worth testing before building a merge routine nobody needs.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+**Order of work for L2:** E2.0 first and alone. Its result decides whether E2.2's design survives contact with reality, and whether E2.3 is a real problem or an avoidable one.
 
 ---
 
@@ -556,3 +647,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
 | E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
+| E2.0 | | |
+| E2.1 | | |
+| E2.2 | | |
+| E2.3 | | |
