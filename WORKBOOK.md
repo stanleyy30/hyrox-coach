@@ -28,7 +28,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **GATE PASSED** · E1.0 ✔ E1.1 ✔ E1.2 ✔ · E1.3 next |
+| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **GATE PASSED** · E1.0 ✔ E1.1 ✔ E1.2 ✔ · E1.3 ran, result open |
 | L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
@@ -281,13 +281,39 @@ Setup: start a session, force-quit the watch app, relaunch, call `HKHealthStore.
 3. The recovered session's `startDate` is the original start, not the relaunch time.
 4. Lowest-confidence prediction in this cycle. Recovery semantics have shifted across watchOS releases and I have not verified this on Stanley's version. If it behaves differently, L2's design changes and that is worth knowing on Day 2 rather than Day 7.
 
-**Actual result**
+**Actual result — RECOVERY FAILED**
 
-<!-- -->
+*Run 2026-08-21, 10:14. Apple Watch Ultra 3 (watchOS 26.6).*
+
+`recoverActiveWorkoutSession` did not return a session. It threw:
+
+```
+Recovery failed: Task server endpoint for
+'43DFBD17-5374-40..-BA6D-14D9DA5FA508' already exists
+(for instance 'E8AB3AF1-F0AC-4632-B29E-9D72CC693B96')
+```
+
+Two distinct identifiers appear: an endpoint id and a different *instance* id. The framework is reporting that a task-server endpoint for that session is **already registered to another live instance** — that is, something in the process already holds an object for this session, so recovery refused to hand back a second one.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Returns the still-running session, and `associatedWorkoutBuilder()` gets back to the builder | **Not confirmed.** It threw instead of returning. |
+| 2 | HealthKit's half survives; my semantic half does not | **Untested** — no session was recovered, so nothing could be inspected |
+| 3 | The recovered session's `startDate` is the original start | **Untested** — same reason |
+| 4 | Lowest-confidence prediction in the cycle; recovery semantics may differ on this watchOS version | **Borne out in spirit.** Recovery did not behave as the documentation implies. |
+
+**INTERPRETATION UNRESOLVED — deliberately not concluded yet.**
+
+The error is consistent with two very different situations, and they have opposite consequences for L2:
+
+1. **The test was malformed.** If the app was not genuinely force-quit — or if E1.2's workout was still running and its session manager still held a live `HKWorkoutSession` — then recovery was called while an instance already existed, and this error is the correct, expected refusal. That would make this a procedural mistake, not a finding.
+2. **The test was valid and recovery is genuinely harder than assumed.** If the app *was* force-quit and relaunched cleanly, then something in the relaunched process re-registered an endpoint before recovery was attempted, and recovery cannot simply be called on launch. That would be a real constraint, and L2's design must account for it.
+
+Recording this as an open question rather than a finding. Concluding "recovery is broken" from an error that a malformed test would also produce is precisely the mistake this cycle has documented five times over.
+
+**Resolution needed:** re-run with the sequence made explicit — confirm E1.2's workout is ended or the app truly force-quit, relaunch, then attempt recovery as the first action.
 
 ---
 
@@ -368,4 +394,4 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
-| E1.3 | | |
+| E1.3 | Recovery FAILED; interpretation open | Threw: endpoint already exists for another instance. Cannot yet distinguish a malformed test from a real constraint. |
