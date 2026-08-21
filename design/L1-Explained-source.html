@@ -1,0 +1,208 @@
+<title>The Watch That Fell Asleep</title>
+<style>
+@page{size:A4;margin:18mm 16mm 16mm}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:Georgia,"Times New Roman",serif;
+  font-size:11.2pt;line-height:1.6;color:#1B252B;background:#fff;
+}
+h1{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:800;
+  font-size:30pt;line-height:1.05;letter-spacing:-.02em;color:#0F1A20;
+  margin:0 0 8pt;
+}
+.sub{font-size:13pt;color:#5A6B75;margin:0 0 4pt}
+.kick{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:8.5pt;
+  font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:#C4501C;margin:0 0 10pt;
+}
+h2{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:700;
+  font-size:15pt;color:#0F1A20;margin:20pt 0 7pt;letter-spacing:-.01em;
+  page-break-after:avoid;
+}
+h3{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:700;
+  font-size:11.5pt;color:#0F1A20;margin:0 0 4pt;page-break-after:avoid;
+}
+p{margin:0 0 8pt}
+strong{color:#0F1A20}
+hr{border:0;border-top:1px solid #D6DEE2;margin:16pt 0}
+
+.box{
+  background:#F5F0EB;border-left:3pt solid #C4501C;
+  padding:11pt 13pt;margin:0 0 12pt;page-break-inside:avoid;
+}
+.box p:last-child{margin-bottom:0}
+
+.nums{display:flex;gap:10pt;margin:0 0 10pt;page-break-inside:avoid}
+.n{
+  flex:1;border:1px solid #D6DEE2;border-radius:4pt;padding:11pt 12pt;
+}
+.n .lbl{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:8pt;
+  font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:#5A6B75;margin:0 0 5pt;
+}
+.n .big{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:800;
+  font-size:30pt;line-height:1;margin:0 0 5pt;
+}
+.n.bad .big{color:#A5382F}
+.n.good .big{color:#116B57}
+.n p{font-size:10pt;margin:0;line-height:1.45}
+
+table{width:100%;border-collapse:collapse;margin:0 0 12pt;page-break-inside:avoid}
+th{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:8pt;
+  font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5A6B75;
+  text-align:left;padding:0 8pt 5pt 0;border-bottom:1px solid #C9D3D8;
+}
+td{
+  padding:7pt 8pt 7pt 0;border-bottom:1px solid #E6ECEF;
+  vertical-align:top;font-size:10.5pt;line-height:1.45;
+}
+td:last-child,th:last-child{padding-right:0}
+tr:last-child td{border-bottom:none}
+
+.test{
+  border:1px solid #D6DEE2;border-radius:4pt;padding:12pt 14pt;
+  margin:0 0 10pt;page-break-inside:avoid;
+}
+.test .tag{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:8pt;
+  font-weight:700;letter-spacing:.1em;color:#C4501C;margin:0 0 3pt;
+}
+.test > p{font-size:10.5pt;margin:0 0 8pt}
+.tp{display:flex;gap:10pt}
+.tp div{flex:1;padding:8pt 10pt;border-radius:3pt}
+.tp .g{background:#F0F3F5}
+.tp .r{background:#E7F2EE}
+.tp .r.miss{background:#FAEAE8}
+.tp .h{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:7.5pt;
+  font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+  margin:0 0 4pt;color:#5A6B75;
+}
+.tp .r .h{color:#116B57}
+.tp .r.miss .h{color:#A5382F}
+.tp p{font-size:10pt;margin:0;line-height:1.45}
+
+.quote{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:13pt;
+  font-weight:600;line-height:1.4;color:#0F1A20;
+  border-left:3pt solid #C4501C;padding-left:12pt;margin:14pt 0;
+}
+.foot{
+  margin-top:18pt;padding-top:8pt;border-top:1px solid #D6DEE2;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:8.5pt;color:#5A6B75;
+}
+.pb{page-break-before:always}
+</style>
+
+<p class="kick">HyroxCoach · Round One</p>
+<h1>The watch that fell asleep</h1>
+<p class="sub">Four small tests on an Apple Watch, and what they showed.</p>
+
+<hr>
+
+<h2>What I am making</h2>
+<p>An app for the Apple Watch to track HYROX training. The watch records the workout while you train. The phone shows the results afterwards.</p>
+
+<h2>What I wanted to find out</h2>
+<p>Whether the watch really keeps recording while you train. I assumed it did. Before building the real app, I wanted to check.</p>
+<p><strong>It does not. Not unless you ask it to.</strong></p>
+
+<h2>How the test works</h2>
+<div class="box">
+  <p>Picture timing something two ways at once. In one hand you hold a <strong>clicker</strong>, and you click it once a second. On the wall there is a <strong>clock</strong>.</p>
+  <p>Stay awake and both agree. Fall asleep and the clicker stops, but the clock keeps going. When you wake up, the difference between them tells you how long you were out.</p>
+  <p>My app does both. It counts, and it checks the clock. <strong>The gap between the two numbers is the result.</strong></p>
+</div>
+
+<h2>The main result</h2>
+<p>Same app, same watch, same test. The only difference is whether the app told the watch <em>"this person is exercising"</em>.</p>
+
+<div class="nums">
+  <div class="n bad">
+    <p class="lbl">Without saying "workout"</p>
+    <p class="big">79%</p>
+    <p>of the time was lost. The app stopped about <strong>8 seconds</strong> after I put my arm down. It counted 20 seconds. 97 seconds had really passed.</p>
+  </div>
+  <div class="n good">
+    <p class="lbl">After saying "workout"</p>
+    <p class="big">1.2%</p>
+    <p>of the time was lost. The app kept going for <strong>27 minutes</strong> and read my heart rate the whole time, with the screen off.</p>
+  </div>
+</div>
+
+<p>The worrying part is not that it stopped. It is that <strong>nothing told me</strong>. No crash. No error. No warning. The app just showed a neat number that was wrong.</p>
+
+<h2>The four tests</h2>
+<p>Before each test I wrote down what I thought would happen. Then I ran it and compared. Writing the guess down first matters. Otherwise it is easy to decide afterwards that you knew all along.</p>
+
+<div class="test">
+  <p class="tag">TEST 1</p>
+  <h3>Can the app reach Apple Health at all?</h3>
+  <p>The app needs permission to read my heart rate and save my workouts. This test just checks that the basic connection works.</p>
+  <div class="tp">
+    <div class="g"><p class="h">I thought</p><p>Permission would work. The slow part of the day would be Apple's paperwork, not the code.</p></div>
+    <div class="r"><p class="h">What happened</p><p>Both were right. Three separate account problems took the whole morning before any health code ran.</p></div>
+  </div>
+</div>
+
+<div class="test">
+  <p class="tag">TEST 2</p>
+  <h3>What happens if I just put my arm down?</h3>
+  <p>Start counting, lower my arm, wait three minutes, look again. The app does not tell the watch anything special. It just counts.</p>
+  <div class="tp">
+    <div class="g"><p class="h">I thought</p><p>It stops within about ten seconds, quietly, and the clicker and the clock stop agreeing.</p></div>
+    <div class="r"><p class="h">What happened</p><p>Exactly that. It stopped after 8 seconds. Clicker said 20 seconds. Clock said 97. No error at all.</p></div>
+  </div>
+</div>
+
+<div class="test">
+  <p class="tag">TEST 3</p>
+  <h3>Does saying "this is a workout" fix it?</h3>
+  <p>Apple lets an app say the person is exercising. That is meant to keep the app running. Same test as before, with that turned on.</p>
+  <div class="tp">
+    <div class="g"><p class="h">I thought</p><p>It keeps running. But I was unsure whether it would really run, or only avoid being shut down.</p></div>
+    <div class="r"><p class="h">What happened</p><p>It ran for 27 minutes and still quietly lost 20 seconds. So it stays awake, but not perfectly. Being unsure was right.</p></div>
+  </div>
+</div>
+
+<div class="test">
+  <p class="tag">TEST 4</p>
+  <h3>If the app closes mid-workout, can it carry on?</h3>
+  <p>People close apps by accident. If that happens halfway through a race, can the app pick the workout back up?</p>
+  <div class="tp">
+    <div class="g"><p class="h">I thought</p><p>Apple's side survives and gives the workout back. My own notes about which station you are on would be lost.</p></div>
+    <div class="r miss"><p class="h">What happened</p><p>Messier than that. It can carry on, but it <strong>failed every time</strong> in the exact situation it is meant for. Still unsolved.</p></div>
+  </div>
+</div>
+
+<h2>What I really learned</h2>
+<p>I set out to learn how the watch behaves. What I actually learned was about <strong>trusting results</strong>.</p>
+<p>Six times, something said it had worked while hiding a problem underneath.</p>
+
+<table>
+  <thead><tr><th>It said</th><th>What was really going on</th></tr></thead>
+  <tbody>
+    <tr><td>"Test passed"</td><td>It had tested something easier than I thought</td></tr>
+    <tr><td>"Build succeeded"</td><td>A missing setting that would crash the app</td></tr>
+    <tr><td>"Permission granted"</td><td>Permission had actually been refused</td></tr>
+    <tr><td>"Confirmed"</td><td>Half the check had come back empty</td></tr>
+    <tr><td>"Installed"</td><td>The install had failed</td></tr>
+    <tr><td>"Still counting"</td><td>A developer tool was holding the app open</td></tr>
+  </tbody>
+</table>
+
+<p class="quote">A tick means something worked. It does not mean it was the thing you were testing.</p>
+
+<h2>Why this matters</h2>
+<p>A HYROX race takes about ninety minutes. At the error rate I measured, an app that counts instead of checking the clock would be <strong>about a minute wrong</strong> by the end. Enough to get a station time wrong, a rest time wrong, and the final time wrong.</p>
+<p>It would not look broken. It would show a clean, believable number that simply was not true. That is the problem worth designing against, and now I have a measurement behind that decision instead of a guess.</p>
+
+<p class="foot">Four tests over two days · Apple Watch Ultra 3 · Every guess written down before the result</p>
