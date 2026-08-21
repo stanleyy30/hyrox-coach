@@ -109,6 +109,10 @@ I expected E1.0b's overall verdict to flip to INCONCLUSIVE once heart rate was d
 
 **Design flaw, stated plainly:** an aggregate verdict over multiple independent checks masks any individual failure. A per-type verdict — heart rate CONFIRMED/INCONCLUSIVE, workouts CONFIRMED/INCONCLUSIVE, reported separately — carries the information the aggregate destroys.
 
+**Fixed and verified on device, 2026-08-21.** `readForeignSamples()` now computes a verdict per type and an OVERALL line that is CONFIRMED only when every type returned data, MIXED when some did not, INCONCLUSIVE when none did. Re-run against the identical condition that fooled the old version — heart rate denied, workouts permitted — it now reports **MIXED**, where before it reported a clean CONFIRMED.
+
+That re-run is the point: the fix was tested against the specific case that exposed the bug, not against a fresh one where it could have passed for the wrong reason. Same discipline the amendments above are about.
+
 **Why this matters beyond E1.0.** This is the third instance in L1 of a result that reported success while the interesting failure hid inside it. It is the same shape as every row in the failure log: the signal surfaces at one level, the cause sits at another. The lesson for L4 is direct — "the sync worked" will be an aggregate over several things that can each fail independently, and a single green verdict there will hide exactly as much as this one did.
 
 ---
@@ -289,7 +293,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | Experiment | Prediction held? | Note |
 |---|---|---|
 | E1.0 | 6 of 6 confirmed | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
-| P5 | Confirmed by denial test | Denial is invisible: no error, empty result. My side-prediction that E1.0b would flip to INCONCLUSIVE was WRONG — aggregate verdict masked it. |
+| P5 | Confirmed by denial test | Denial is invisible: no error, empty result. The side-prediction that E1.0b would flip to INCONCLUSIVE was WRONG — the aggregate verdict masked it. Probe since fixed and re-verified: reports MIXED on the same case. |
 | P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | | |
