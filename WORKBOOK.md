@@ -28,7 +28,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **GATE PASSED** · E1.0 ✔ E1.1 ✔ E1.2 ✔ · E1.3 ran, result open |
+| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed on Day 2 |
 | L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
@@ -281,39 +281,47 @@ Setup: start a session, force-quit the watch app, relaunch, call `HKHealthStore.
 3. The recovered session's `startDate` is the original start, not the relaunch time.
 4. Lowest-confidence prediction in this cycle. Recovery semantics have shifted across watchOS releases and I have not verified this on Stanley's version. If it behaves differently, L2's design changes and that is worth knowing on Day 2 rather than Day 7.
 
-**Actual result — RECOVERY FAILED**
+**Actual result — RECOVERED SUCCESSFULLY (second attempt)**
 
-*Run 2026-08-21, 10:14. Apple Watch Ultra 3 (watchOS 26.6).*
-
-`recoverActiveWorkoutSession` did not return a session. It threw:
+*Run 2026-08-21, 10:21. Apple Watch Ultra 3 (watchOS 26.6). Session started 10:19:35, force-quit via Side button + Digital Crown, relaunched, recovery attempted as the first action.*
 
 ```
-Recovery failed: Task server endpoint for
-'43DFBD17-5374-40..-BA6D-14D9DA5FA508' already exists
+Recovered state running; start 21 Aug 2026 at 10.19.35;
+associated builder: yes
+```
+
+| Reading | Value |
+|---|---|
+| Session returned | Yes, state `running` |
+| `associatedWorkoutBuilder()` | Yes |
+| Recovered `startDate` | **10:19:35** — the original start |
+| Time of recovery | ~10:21, roughly 90 s later |
+
+**FIRST ATTEMPT FAILED — and the reason is itself a design constraint.**
+
+At 10:14 recovery threw:
+
+```
+Task server endpoint for '43DFBD17-…-14D9DA5FA508' already exists
 (for instance 'E8AB3AF1-F0AC-4632-B29E-9D72CC693B96')
 ```
 
-Two distinct identifiers appear: an endpoint id and a different *instance* id. The framework is reporting that a task-server endpoint for that session is **already registered to another live instance** — that is, something in the process already holds an object for this session, so recovery refused to hand back a second one.
+Cause: the E1.2 workout was **still running** and its session manager still held a live `HKWorkoutSession`. Recovery was called while an instance already existed, and the framework correctly refused to issue a second one. The test was malformed, not the API.
 
 **The gap**
 
 | # | Prediction | Outcome |
 |---|---|---|
-| 1 | Returns the still-running session, and `associatedWorkoutBuilder()` gets back to the builder | **Not confirmed.** It threw instead of returning. |
-| 2 | HealthKit's half survives; my semantic half does not | **Untested** — no session was recovered, so nothing could be inspected |
-| 3 | The recovered session's `startDate` is the original start | **Untested** — same reason |
-| 4 | Lowest-confidence prediction in the cycle; recovery semantics may differ on this watchOS version | **Borne out in spirit.** Recovery did not behave as the documentation implies. |
+| 1 | Returns the still-running session; `associatedWorkoutBuilder()` gets back to the builder | **Confirmed** — state `running`, builder present |
+| 2 | HealthKit's half survives; my semantic half does not | **First half confirmed. Second half not yet testable** — there is no semantic state to lose, because no state machine exists until L2. Recorded as untested rather than assumed. |
+| 3 | The recovered `startDate` is the original start, not the relaunch time | **Confirmed** — 10:19:35, roughly 90 s before recovery |
+| 4 | Lowest-confidence prediction; recovery semantics may differ on this watchOS version | **Resolved.** Recovery behaves as documented *when called correctly*. The uncertainty was warranted, but the risk turned out to sit in the calling sequence rather than the API. |
 
-**INTERPRETATION UNRESOLVED — deliberately not concluded yet.**
+**The real finding is the constraint the failed attempt exposed.** Recovery cannot be called while the process already holds a session object for that workout. It must be **the first thing a relaunched app does**, before any screen, view model or manager instantiates a session. Touch E1.2's screen first and you re-register an endpoint and reproduce the failure — for the correct reason, which is what makes it dangerous.
 
-The error is consistent with two very different situations, and they have opposite consequences for L2:
+**Direct consequence for L2.** Recovery is not a repair step you reach for after noticing something is wrong; it is a launch-path decision made before normal startup runs. Combined with prediction 2 — HealthKit restores its own record while the semantic layer does not — L2's design follows: persist semantic state on every transition, and on launch attempt recovery *first*, then rehydrate the semantic layer alongside whatever HealthKit hands back.
 
-1. **The test was malformed.** If the app was not genuinely force-quit — or if E1.2's workout was still running and its session manager still held a live `HKWorkoutSession` — then recovery was called while an instance already existed, and this error is the correct, expected refusal. That would make this a procedural mistake, not a finding.
-2. **The test was valid and recovery is genuinely harder than assumed.** If the app *was* force-quit and relaunched cleanly, then something in the relaunched process re-registered an endpoint before recovery was attempted, and recovery cannot simply be called on launch. That would be a real constraint, and L2's design must account for it.
-
-Recording this as an open question rather than a finding. Concluding "recovery is broken" from an error that a malformed test would also produce is precisely the mistake this cycle has documented five times over.
-
-**Resolution needed:** re-run with the sequence made explicit — confirm E1.2's workout is ended or the app truly force-quit, relaunch, then attempt recovery as the first action.
+**Prediction 3 matters more than it looks.** Given that E1.1 and E1.2 established every duration must be computed from stored timestamps rather than counters, the recovered `startDate` is the field all of those computations hang from. It surviving a force-quit intact is what makes recovery useful rather than merely possible.
 
 ---
 
@@ -378,6 +386,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | Aug 20 | "Your team has no devices" even with both devices connected | Devices not detected by the Mac | They *were* detected — but `generic/platform=watchOS` names no specific device, so there was nothing concrete to register | Build against `platform=watchOS,id=<device-id>` instead of the generic destination |
 | Aug 20 | `devicectl` install reported shell exit code 0 | Install succeeded | Install had **failed** (`IXRemoteErrorDomain error 6`); the exit code came from the shell, not the install. The old build was then launched instead | Read the actual output, not the exit status. Reinstalled from Xcode |
 | Aug 21 | E1.1 ticks never stopped with the wrist down | watchOS is more permissive than predicted | The **debugger was attached** after installing from Xcode. A debug session prevents suspension, so the experiment measured the debugger, not the OS | Stop the Xcode session; launch from the watch itself |
+| Aug 21 | `recoverActiveWorkoutSession` threw "endpoint already exists" | Recovery is broken on this watchOS version | The E1.2 workout was **still running**; a live session object already existed, so the refusal was correct. Malformed test, not a broken API | End the workout, force-quit properly, and call recovery as the relaunched app's first action |
 | | | | | |
 
 **Note on the first row:** this is exactly the class of failure L1 is about — the symptom pointed at one layer (no Xcode) and the cause was in another (toolchain selection). Worth keeping as the template for how rows in this table should read.
@@ -394,4 +403,4 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
-| E1.3 | Recovery FAILED; interpretation open | Threw: endpoint already exists for another instance. Cannot yet distinguish a malformed test from a real constraint. |
+| E1.3 | 2 confirmed, 1 half-untestable, 1 resolved | Recovered on the second attempt: state running, builder present, original startDate intact. First attempt malformed — recovery refuses while a session is live, which is itself an L2 constraint. |
