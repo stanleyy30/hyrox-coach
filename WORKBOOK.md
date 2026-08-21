@@ -353,6 +353,109 @@ Cause: the E1.2 workout was **still running** and its session manager still held
 
 ---
 
+# CYCLE L1 · RESULTS SUMMARY
+
+**Status: COMPLETE.** Gate passed on Day 2 (2026-08-21), on schedule.
+
+**Conditions for every measurement below** — Apple Watch Ultra 3 (watchOS 26.6), iPhone 16 Pro Max (iOS 26.6.1), Xcode 26.6. Always-On Display **OFF**, app launched **from the watch**, **no debugger attached**. E1.1 and E1.2 are directly comparable because both were run this way; any result taken under different conditions is marked where it appears.
+
+---
+
+## The question, and the answer
+
+> Why does a watch app stop recording, and what does `HKWorkoutSession` actually change?
+
+**Answer.** Without a workout session, watchOS suspends the app within about 8 seconds of the wrist dropping, and it loses 79% of elapsed time while reporting no error of any kind. With an active `HKWorkoutSession` the app keeps executing and loses about 1.2%. The session is what buys background execution — but it buys *survival of the process*, not *reliable execution of every timer*.
+
+---
+
+## Results by experiment
+
+| Experiment | Question | Result |
+|---|---|---|
+| **E1.0** | Can the app reach HealthKit on real hardware? | **PASS** — authorised on the watch; wrote 1 kcal and read it back, sample `1F3508E0-D277-4395-BF3F-911E95CDE0DA` |
+| **E1.0b** | Was *read* access actually granted? | **CONFIRMED** — foreign-source samples read. Added because E1.0's pass could not evidence read access |
+| **P2** (sabotage) | Does a missing usage description fail the build or crash at runtime? | **Crash.** Build succeeded with no error or warning; instant termination on tapping authorise, before any `catch` |
+| **P5** (denial) | Is a denied read permission detectable from inside the app? | **No.** Authorisation still reported success; the query returned an empty set with no error |
+| **E1.1** | What happens with **no** workout session? | Ticks stopped ~8 s after wrist-down. **20 ticks / 20.0 s counted vs 97.0 s real — 77.0 s lost (79.4%)** |
+| **E1.2** | What happens **with** an active session? | **GATE PASSED.** Two readings: 1,134 ticks / 1,149.0 s (15.0 s lost, 1.31%) and 1,610 ticks / 1,630.0 s (20.0 s lost, 1.23%). Heart rate 84 bpm live with the screen off |
+| **E1.3** | Does `recoverActiveWorkoutSession` work? | **Possible, but the launch path is an OPEN QUESTION.** Recovery after force-quit *reliably fails* while a workout is active. Success required an intervening end-workout, which a crashed app cannot perform |
+
+---
+
+## The headline measurement
+
+| | No session (E1.1) | Workout session (E1.2, final) |
+|---|---|---|
+| Real elapsed | 97.0 s | 1,630.0 s |
+| Counted by ticks | 20.0 s | 1,610.0 s |
+| Time lost | 77.0 s | 20.0 s |
+| **Proportion lost** | **79.4 %** | **1.23 %** |
+
+Two E1.2 readings taken 481 s apart lost 5.0 s between them (1.04%), so the shortfall is **proportional to elapsed time, not a one-off start-up cost**. Extrapolated, a ~90-minute HYROX race would lose roughly **65 seconds** to tick-counting.
+
+---
+
+## Prediction tally
+
+| Experiment | Confirmed | Wrong | Untested |
+|---|---|---|---|
+| E1.0 (6 predictions) | 6 | 0 | 0 |
+| E1.0b + side-prediction | 1 | **1** | 0 |
+| E1.1 (5 predictions) | 5 | 0 | 0 |
+| E1.2 (5 predictions) | 2 confirmed, 1 refined | 0 | 2 |
+| E1.3 (4 predictions) | 2, 1 resolved | 0 | 1 |
+
+**Untested and honestly marked, not counted as wins:**
+- E1.2 · whether `activityType` affects staying alive — only `.crossTraining` was used
+- E1.2 · battery drain — never measured
+- E1.3 · whether semantic state is lost on recovery — **untestable until L2 exists**, since there is no semantic state to lose yet
+
+**The one wrong prediction was the most useful.** Expecting E1.0b to report INCONCLUSIVE after denying heart rate exposed that the probe aggregated two independent queries into a single verdict, hiding an individual failure. Fixed to report per-type verdicts, and re-verified against the same case.
+
+---
+
+## Architectural rules this cycle established
+
+These are the durable output of L1 — decisions now backed by measurement rather than assumption.
+
+1. **Every duration must be computed from stored timestamps, never from accumulated ticks or counters.** Holds even with an active workout session, where tick-counting is still wrong by ~1.2%. On a 4-minute sled push that is a ~3-second silent error.
+2. **An `HKWorkoutSession` must be running for any live capture.** Without it there is no recording, and no error to tell you so.
+3. **Configuration correctness is not defensible in code.** A missing Info.plist usage description kills the process before any error handler runs.
+4. **Read permission state cannot be inferred from inside the app.** An empty result is indistinguishable from a denial. Anything built on "we got no data" must treat that as ambiguous.
+5. **Verification must be per-check, never aggregated.** A single verdict over independent checks hides individual failures.
+6. **The recovered `startDate` survives and is the anchor for every derived duration** — which is what makes recovery worth having at all.
+
+---
+
+## The pattern that ran through the whole cycle
+
+Six times, a success signal at one level concealed a failure at another:
+
+| Green signal | What it hid |
+|---|---|
+| Round trip `PASS` | Read access was never tested |
+| `BUILD SUCCEEDED` | A fatal missing configuration key |
+| Authorisation `success` | Read access had been denied |
+| Probe `CONFIRMED` | One of its two checks returned nothing |
+| Install exit code `0` | The install had actually failed |
+| E1.1 ticks continuing | A debugger was holding the app alive |
+
+A seventh belongs to the record-keeping rather than the tooling: E1.3's first failure was written up as a one-off malformed test, and only proved reproducible because the sequence was repeated rather than accepted.
+
+**This was not L1's subject. It is L1's most transferable finding**, and the direct warning for L4, where "the sync worked" will be an aggregate over transfer, delivery, duplicate handling and deduplication — each able to fail independently, with no sample identifier on screen to make it obvious.
+
+---
+
+## Open questions carried into L2
+
+1. **What actually happens to a watch app that dies mid-workout?** Does the system resurrect it to sustain the session? What state does the process return in? This must be answered before persistence is designed, not after.
+2. **Can recovery be called reliably on launch**, or must the launch path tolerate an endpoint conflict and retry?
+3. Does `activityType` affect session longevity? (Untested; low priority.)
+4. What is the battery cost of a long session? (Untested; matters for a 90-minute race.)
+
+---
+
 # CYCLE L2 · Recoverability — Days 3–4 (Aug 22–23)
 
 **Learning question:** What has to be true for a workout to survive the app dying?
