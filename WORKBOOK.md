@@ -28,7 +28,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed on Day 2 |
+| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
@@ -325,6 +325,34 @@ Cause: the E1.2 workout was **still running** and its session manager still held
 
 ---
 
+### Amendment — E1.3 is reproducible, and the earlier conclusion was too simple
+
+**Reported behaviour, reproducible across attempts:**
+
+| Sequence | Result |
+|---|---|
+| Start workout → force-quit → relaunch → attempt recovery | **"Recovery failed"** — endpoint already exists |
+| Then end the workout → attempt recovery | **"No active workout session was available to recover"** |
+| Then attempt recovery **again** | **"Recovered state running"** |
+
+**The probe code was audited and is not the cause.** `RecoveryProbe.attemptRecovery()` sets `latestResult` on every branch — success, nil, and error — and each tap issues a fresh `recoverActiveWorkoutSession` call. There is no cached or stale result. The three outcomes are the framework's, not the app's.
+
+**What this establishes (recorded fact):**
+
+1. Recovery immediately after a force-quit **reliably fails** while a workout is active, with an endpoint-already-exists error.
+2. After the workout is ended, recovery reports **no session available**.
+3. A subsequent attempt then returns a **running session with the original `startDate`**.
+
+**What this suggests (hypothesis, not established):** an app holding an active `HKWorkoutSession` is not really terminated by a force-quit — the system keeps or relaunches an instance to sustain the session, so its endpoint is still registered when the user reopens the app. Ending the workout releases the endpoint held by *this* process's session object, after which recovery can return the session that is still running at system level. That would explain all three states and the preserved start time, but the mechanism has **not** been proven here.
+
+**How this changes the earlier conclusion.** The original entry recorded recovery as working, with the failed first attempt written off as a malformed test. That was true but incomplete. The failure is not a one-off procedural slip — it is the **reliable** outcome of the exact scenario L2 must handle: the app dying mid-workout. Recovery succeeded only after an intervening end-workout, which is not something a crashed app gets to do.
+
+**Consequence for L2, and it is a significant one.** "Force-quit the app and recover the session" cannot be assumed to work as a straight sequence. Before designing persist-on-transition, L2 must first establish what genuinely happens to a watch app that dies mid-workout — whether the system resurrects it, and what state the process comes back in. The recovery path may need to tolerate an endpoint conflict on launch and retry, rather than calling recovery once and trusting the result.
+
+**Status: recovery is confirmed possible, but the launch-path design is now an open question for L2 rather than a settled one.**
+
+---
+
 # CYCLE L2 · Recoverability — Days 3–4 (Aug 22–23)
 
 **Learning question:** What has to be true for a workout to survive the app dying?
@@ -407,7 +435,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | Aug 20 | "Your team has no devices" even with both devices connected | Devices not detected by the Mac | They *were* detected — but `generic/platform=watchOS` names no specific device, so there was nothing concrete to register | Build against `platform=watchOS,id=<device-id>` instead of the generic destination |
 | Aug 20 | `devicectl` install reported shell exit code 0 | Install succeeded | Install had **failed** (`IXRemoteErrorDomain error 6`); the exit code came from the shell, not the install. The old build was then launched instead | Read the actual output, not the exit status. Reinstalled from Xcode |
 | Aug 21 | E1.1 ticks never stopped with the wrist down | watchOS is more permissive than predicted | The **debugger was attached** after installing from Xcode. A debug session prevents suspension, so the experiment measured the debugger, not the OS | Stop the Xcode session; launch from the watch itself |
-| Aug 21 | `recoverActiveWorkoutSession` threw "endpoint already exists" | Recovery is broken on this watchOS version | The E1.2 workout was **still running**; a live session object already existed, so the refusal was correct. Malformed test, not a broken API | End the workout, force-quit properly, and call recovery as the relaunched app's first action |
+| Aug 21 | `recoverActiveWorkoutSession` threw "endpoint already exists" | Recovery is broken on this watchOS version | Initially read as a malformed test. On repetition it proved **reproducible**: recovery reliably fails after a force-quit while a workout is active. The one-off explanation was wrong | Open question for L2 — see the E1.3 amendment |
 | | | | | |
 
 **Note on the first row:** this is exactly the class of failure L1 is about — the symptom pointed at one layer (no Xcode) and the cause was in another (toolchain selection). Worth keeping as the template for how rows in this table should read.
@@ -424,4 +452,4 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
-| E1.3 | 2 confirmed, 1 half-untestable, 1 resolved | Recovered on the second attempt: state running, builder present, original startDate intact. First attempt malformed — recovery refuses while a session is live, which is itself an L2 constraint. |
+| E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
