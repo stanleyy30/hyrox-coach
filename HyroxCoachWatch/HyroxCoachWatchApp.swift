@@ -4,9 +4,17 @@ import SwiftUI
 
 @main
 struct HyroxCoachWatchApp: App {
+    @StateObject private var crashProbe: CrashProbe
+
+    init() {
+        let crashProbe = CrashProbe()
+        crashProbe.recordLaunch()
+        _crashProbe = StateObject(wrappedValue: crashProbe)
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(crashProbe: crashProbe)
         }
     }
 }

@@ -4,10 +4,13 @@ import SwiftUI
 import HealthKit
 
 struct ContentView: View {
+    @ObservedObject var crashProbe: CrashProbe
+
     @StateObject private var healthKitAuth = HealthKitAuth()
     @StateObject private var backgroundProbe = BackgroundProbe()
     @StateObject private var workoutManager = WorkoutSessionManager()
     @StateObject private var recoveryProbe = RecoveryProbe()
+    @State private var isShowingCrashConfirmation = false
 
     var body: some View {
         List {
@@ -68,6 +71,25 @@ struct ContentView: View {
                 }
                 .disabled(recoveryProbe.isRecovering)
                 Text(recoveryProbe.latestResult)
+            }
+
+            Section("E2.0 Crash relaunch") {
+                Text(crashProbe.summary)
+                Button("E2.0 Crash now") {
+                    isShowingCrashConfirmation = true
+                }
+                .confirmationDialog(
+                    "Deliberately crash the app?",
+                    isPresented: $isShowingCrashConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Crash app", role: .destructive) {
+                        crashProbe.crashNow()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will end the current experiment run.")
+                }
             }
         }
     }
