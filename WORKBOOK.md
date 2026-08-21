@@ -28,7 +28,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | ▶ E1.0 PASSED · E1.1 next |
+| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | ▶ E1.0 ✔ · E1.1 ✔ · **E1.2 next (GATE)** |
 | L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | — |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
@@ -168,11 +168,37 @@ Setup: a watch app with a repeating timer logging via `os_log` every second. No 
 
 **Actual result**
 
-<!-- -->
+*Run 2026-08-21, Apple Watch Ultra 3 (watchOS 26.6). **Always-On Display: OFF.** App launched from the watch itself, no debugger attached.*
+
+| Reading | Value |
+|---|---|
+| Ticks recorded | 20 |
+| Elapsed **by counting ticks** | 20.0 s |
+| Elapsed **from stored start `Date`** | 97.0 s |
+| **Divergence** | **77.0 s** |
+| Time from wrist-down to ticks stopping | ~8 s |
+
+No crash. No error. No callback. The app simply stopped executing and later resumed as though nothing had happened.
+
+**FIRST ATTEMPT WAS INVALID — recorded because the reason matters.** The initial run was made after installing from Xcode with the debugger still attached, and the ticks never stopped at all. An attached debugger prevents watchOS from suspending the process, so the experiment was measuring the debugger rather than the operating system. Re-run cleanly by stopping the Xcode session and launching from the watch itself.
 
 **The gap**
 
-<!-- -->
+All five predictions confirmed, one of them unusually precisely.
+
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | App backgrounds as soon as the wrist drops | **Confirmed** |
+| 2 | Logging stops within a few seconds, likely under 10 | **Confirmed** — ~8 s |
+| 3 | Tick-counted elapsed is wrong; `Date`-computed elapsed is right | **Confirmed** — 20.0 s vs 97.0 s |
+| 4 | No crash and no error; the failure is silent | **Confirmed** |
+| 5 | `os_log` survives suspension, so the timestamp gap is the evidence | **Confirmed** |
+
+**What the number actually means.** A tick-counted timer under-reports by exactly the duration the app was suspended. Here it lost 77 of 97 seconds — it saw **21%** of real time. This is not drift or imprecision; it is time the process did not exist for.
+
+**Why this decides an architectural rule, not just a coding preference.** Every duration in a HYROX session — station times, roxzone transitions, total race time — must be computed from stored timestamps, never by accumulating ticks or incrementing a counter. A wrist-down during a sled push would silently subtract that entire period from the recorded station time, and nothing in the app would report an error. The number would simply be wrong, and plausibly wrong, which is worse.
+
+**This is the baseline E1.2 is measured against.** E1.2 must be run under identical conditions — Always-On Display OFF, launched from the watch, no debugger — or the comparison means nothing.
 
 ---
 
@@ -282,6 +308,8 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | Aug 20 | "No profiles for 'com.stanleyyoung.HyroxCoach.watchkitapp' were found" | Bundle ID or signing config wrong | Program License Agreement was unaccepted on the developer account, so the team could not issue any profile at all | Accept the updated PLA at developer.apple.com/account |
 | Aug 20 | Same "no profiles" error, after the PLA was accepted | Still a signing config problem | Team had **no registered devices**; a development profile must name specific devices | Connect and trust iPhone, register both devices with the team |
 | Aug 20 | "Your team has no devices" even with both devices connected | Devices not detected by the Mac | They *were* detected — but `generic/platform=watchOS` names no specific device, so there was nothing concrete to register | Build against `platform=watchOS,id=<device-id>` instead of the generic destination |
+| Aug 20 | `devicectl` install reported shell exit code 0 | Install succeeded | Install had **failed** (`IXRemoteErrorDomain error 6`); the exit code came from the shell, not the install. The old build was then launched instead | Read the actual output, not the exit status. Reinstalled from Xcode |
+| Aug 21 | E1.1 ticks never stopped with the wrist down | watchOS is more permissive than predicted | The **debugger was attached** after installing from Xcode. A debug session prevents suspension, so the experiment measured the debugger, not the OS | Stop the Xcode session; launch from the watch itself |
 | | | | | |
 
 **Note on the first row:** this is exactly the class of failure L1 is about — the symptom pointed at one layer (no Xcode) and the cause was in another (toolchain selection). Worth keeping as the template for how rows in this table should read.
@@ -296,6 +324,6 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | P5 | Confirmed by denial test | Denial is invisible: no error, empty result. The side-prediction that E1.0b would flip to INCONCLUSIVE was WRONG — the aggregate verdict masked it. Probe since fixed and re-verified: reports MIXED on the same case. |
 | P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
-| E1.1 | | |
+| E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | | |
 | E1.3 | | |
