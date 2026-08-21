@@ -220,24 +220,29 @@ Setup: same app, but start an `HKWorkoutSession` + `HKLiveWorkoutBuilder` first.
 
 *Run 2026-08-21, ending ~09:44. Apple Watch Ultra 3 (watchOS 26.6). Always-On Display OFF, launched from the watch, no debugger. Same conditions as E1.1.*
 
-| Reading | Value |
-|---|---|
-| Session state | `Workout running` / `Workout collection running` |
-| Ticks recorded | 1,134 |
-| Elapsed **by counting ticks** | 1,134.0 s |
-| Elapsed **from stored start `Date`** | 1,149.0 s |
-| **Divergence** | **15.0 s** |
-| Heart rate, screen off | **84 bpm**, arriving live |
-| Duration | ~19 minutes |
+Session state throughout: `Workout running` / `Workout collection running`. Heart rate **84 bpm**, arriving live with the screen off.
+
+**Two readings were taken, which turned out to matter more than one.**
+
+| | Reading A (09:43) | Reading B (09:51, final) |
+|---|---|---|
+| Ticks recorded | 1,134 | 1,610 |
+| Elapsed **by counting ticks** | 1,134.0 s | 1,610.0 s |
+| Elapsed **from stored `Date`** | 1,149.0 s | 1,630.0 s |
+| **Divergence** | **15.0 s** | **20.0 s** |
+| Loss as a proportion | 1.31 % | 1.23 % |
+| Duration | ~19 min | ~27 min |
+
+Between the two readings, 481 s of real time passed and 476 ticks were recorded — 5 s lost in that window, about 1.04 %.
 
 **Direct comparison against the E1.1 baseline, run under identical conditions:**
 
-| | No session (E1.1) | Workout session (E1.2) |
+| | No session (E1.1) | Workout session (E1.2, final) |
 |---|---|---|
-| Real elapsed | 97.0 s | 1,149.0 s |
-| Counted by ticks | 20.0 s | 1,134.0 s |
-| Time lost | 77.0 s | 15.0 s |
-| **Proportion lost** | **79.4 %** | **1.3 %** |
+| Real elapsed | 97.0 s | 1,630.0 s |
+| Counted by ticks | 20.0 s | 1,610.0 s |
+| Time lost | 77.0 s | 20.0 s |
+| **Proportion lost** | **79.4 %** | **1.23 %** |
 
 **The gap**
 
@@ -253,7 +258,11 @@ Setup: same app, but start an `HKWorkoutSession` + `HKLiveWorkoutBuilder` first.
 
 **The more interesting result is that 15 seconds, not the pass.** Prediction 5 — the one flagged as least confident — was right. A workout session prevents *suspension*; it does not guarantee a timer fires every second. The process stays alive while individual ticks are still coalesced or dropped.
 
-So the architectural rule from E1.1 is not softened by this result, it is **reinforced**: durations must come from stored timestamps even *with* an active workout session. Tick-counting under a session is wrong by roughly 1.3% — about 15 seconds over 19 minutes. On a 4-minute sled push that is a 3-second error, silently, with no way to detect it from inside the app.
+So the architectural rule from E1.1 is not softened by this result, it is **reinforced**: durations must come from stored timestamps even *with* an active workout session.
+
+**The second reading is what makes this conclusive.** A single measurement could have been dismissed as a start-up artifact — some cost paid once while the session spun up, then negligible. It is not. Loss held at 1.31 % after 19 minutes and 1.23 % after 27, with 1.04 % across the window between them. **The drift is steady and proportional to elapsed time, not a fixed one-off cost.**
+
+That converts an observation into an extrapolation. At ~1.2 %, a full HYROX race of roughly 90 minutes would lose about **65 seconds** to tick-counting — comfortably enough to misreport a station, a transition, and the total. On a 4-minute sled push it is a ~3-second error. Silent, plausible, and undetectable from inside the app.
 
 **Which is the same shape as everything else in this cycle.** "Workout running" is a green signal that means the session is alive. It does not mean every tick fired. Believing the stronger claim because the weaker one is true is precisely the error the rest of L1 documented.
 
@@ -358,5 +367,5 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
-| E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.3% lost vs 79.4% without a session. The 15 s shortfall confirms timers are still throttled. |
+| E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
 | E1.3 | | |
