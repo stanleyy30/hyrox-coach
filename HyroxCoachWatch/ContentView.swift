@@ -134,7 +134,12 @@ struct ContentView: View {
                 ) {
                     Button("Save and crash", role: .destructive) {
                         machine.crashPoint = selectedCrashPoint
-                        machine.start()
+                        // advance(), not start(): the crash must land inside a
+                        // TRANSITION write on the existing protocol. start()
+                        // wrote a fresh empty state, which made the truncated
+                        // temp file 132 bytes instead of half the real payload
+                        // and left the transition-loss window untested.
+                        machine.advance()
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
