@@ -29,7 +29,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.3 next |
+| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity CONFIRMED 5/5 · E2.3 next |
 | L3 · Ownership | D5–D6 | **Aug 27–28** | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
@@ -725,7 +725,7 @@ Completed segments: 4
 |---|---|---|
 | 1 | Writing on every transition is cheap; no reason to batch | **Not measured.** No lag was observable, but nothing was timed. Recorded as unmeasured rather than confirmed. |
 | 2 | Nothing meaningful is lost, provided timestamps are persisted rather than durations | **Confirmed, decisively.** Segment durations identical; current elapsed carried straight through the death. |
-| 3 | The write must be atomic — a crash during a write corrupts the file | **Implemented but untested.** `replaceItemAt` is in place; no kill was landed *during* a write, so atomicity itself remains unproven. |
+| 3 | The write must be atomic — a crash during a write corrupts the file | **Now confirmed by E2.2b.** Tested at three injection points including a complete-but-uncommitted temp file; no partial state ever observed. |
 | 4 | At most one transition is lost — whatever happened between the last write and the death | **Untested.** The kill landed mid-state, not mid-transition, so the lossy window was never exercised. |
 | 5 | The first implementation will fail on relaunch for a boring reason — a decode error or missing file | **WRONG.** It worked first time. |
 
@@ -757,13 +757,49 @@ After each, relaunch and ask what `load()` returns.
 4. **The state lost is the in-flight transition only** — the app returns to the state before the transition that was being written. That is the acceptable failure mode E2.2 predicted but never exercised.
 5. **Lowest confidence: whether `replaceItemAt` is genuinely atomic on watchOS.** It is documented as such, but this project has already found documented behaviour that did not hold. If it is not atomic, prediction 1 fails and the persistence design needs a different mechanism — which would be far better to learn now than in L4.
 
-**Actual result**
+**Actual result — ATOMIC. All three crash points survived.**
 
-<!-- -->
+*Run 2026-08-24, 10:25–10:32. Deterministic crash injection inside the save path, no debugger, force-quit not involved.*
+
+| Round | Crash point | Real file | Temp file | Restored |
+|---|---|---|---|---|
+| 1 | `beforeTempWrite` | **valid**, 1869 B | absent | Station 1, 3 segments — the pre-transition state |
+| 2 | `duringTempWrite` | **valid**, 2554 B | present, **1619 B** (truncated) | Run 2, 4 segments — pre-transition |
+| 3 | `afterTempWriteBeforeReplace` | **valid**, 2552 B | present, **3239 B** (complete) | Run 2, 4 segments — pre-transition |
+
+**Round 3 is the decisive one and it passed.** A complete, newer temp file of 3239 bytes sat on disk beside a 2552-byte committed file — larger, more recent, and entirely legitimate-looking. The app ignored it and loaded the committed state. Had the implementation ever preferred the temp file or replaced on read, this is the only round that would have caught it.
+
+**An arithmetic cross-check the experiment produced by accident.** Round 2's truncated temp was 1619 bytes; round 3's complete temp was 3239. 1619 × 2 = 3238. The truncation really was writing exactly half of the same payload shape, which independently confirms the harness was doing what it claimed rather than something adjacent.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | All three crash points leave the previous complete envelope intact; `load()` never returns partial and never throws | **Confirmed** across all three |
+| 2 | `afterTempWriteBeforeReplace` is the real test | **Confirmed as the decisive case**, and it passed |
+| 3 | Stale `.tmp` files accumulate and nothing cleans them | **Confirmed** — rounds 2 and 3 each left an orphan |
+| 4 | Only the in-flight transition is lost | **Confirmed** — every round restored the state *before* the advance being written |
+| 5 | Lowest confidence: whether `replaceItemAt` is genuinely atomic on watchOS | **Confirmed atomic.** No partial state was ever observed, at any injection point. |
+
+Five of five. The first time in this project that a full prediction set has held.
+
+---
+
+### The harness was wrong at first, and the run that found it is kept
+
+The initial rounds 1 and 2 were **invalid**. The crash-save button called `machine.start()` — beginning a fresh empty protocol — rather than `advance()`, so the payload being written was a ~264-byte empty state rather than a real transition.
+
+**How it surfaced:** round 2's truncated temp file came back at **132 bytes** when roughly half of ~1869 was expected. The number was the only thing that looked wrong; both rounds otherwise reported clean, plausible results and would have been logged as passes.
+
+**What it cost:** two things were wrongly scored before the fix.
+- Prediction 4 was recorded as confirmed on the first round 1. It was not tested at all — the operation was a fresh start, not a transition. That scoring was mine and was wrong.
+- The atomicity claim was being exercised against an unrepresentative payload.
+
+**After the one-line fix** (`start()` → `advance()`), the same rounds produced 1619 and 3239 bytes — figures consistent with each other and with the real state size. The claim is now tested against what it was meant to be tested against.
+
+**Why this belongs in the record.** The experiment nearly passed for the wrong reason. Nothing failed, no error appeared, and the only signal that anything was off was a byte count that did not fit. This is the same pattern the whole project has been documenting — a green result concealing a weaker test than intended — arriving this time inside the instrument built to detect it.
+
+**Cross-reference:** this closes E2.2's prediction 3, previously recorded as *implemented but untested*.
 
 ---
 
@@ -885,6 +921,6 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
-| E2.2b | | |
+| E2.2b | **5 of 5 confirmed** | Atomic at all three crash points. Round 3's complete 3239 B temp correctly ignored. Harness bug found mid-run via an anomalous byte count; two earlier scorings corrected. |
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E2.3 | | |
