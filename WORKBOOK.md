@@ -639,6 +639,27 @@ That distinction matters for implementation. A design measured by state count lo
 
 ---
 
+### E2.1 verification pass — 2026-08-24
+
+A design cannot be run, so it was audited instead: the tables were parsed and counted independently of the document's own claims, rather than taking its summary on trust.
+
+| Check | Method | Result |
+|---|---|---|
+| Transition count | Parsed rows from the table | **26** — matches the claim |
+| Ordinary vs awkward split | Counted the class column | **O = 6, A = 20** — matches the claimed 3.33 : 1 |
+| State count | Parsed the states table | **10** — matches |
+| Unreachable states | Every state checked for an incoming transition | **None.** Every state is reachable |
+| Dead-end states | Every state checked for an outgoing transition | **Only `Abandoned`** — correct, it is terminal |
+| Every state carries a start timestamp | Field column checked per state | **All 10 do.** No state stores a duration |
+
+**One structural detail worth noting:** `Completed` is *not* a dead end. It has an outgoing transition, because undo from `Completed` is reachable. That is deliberate and matches the mis-tap handling — but it means the machine has a terminal state that can be re-entered, which is the kind of thing that produces surprises in implementation. Flagged rather than treated as a defect.
+
+**One gap found.** The design states recovery must be called "exactly once" at launch, but nowhere records **why** — that `recoverActiveWorkoutSession` is not idempotent and a second call fails against the first call's own session. The rule is present; the measured reason behind it is not. That matters because a future reader (including me) may see a single-call constraint, judge it over-cautious, and add a retry — which E2.0b showed is exactly the wrong response.
+
+**Verdict: the design's claims about itself are accurate.** The counts are real, the graph is well-formed, and the timestamp constraint holds throughout. The recorded E2.1 result stands unchanged.
+
+---
+
 ## E2.2 — Persist on every transition, then kill it
 
 Setup: write semantic state to disk at every transition. Kill the app mid-station. Relaunch. Compare what was restored against what was true at the moment of death.
@@ -777,6 +798,6 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
 | E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
-| E2.1 | 3 confirmed, 1 mixed | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
+| E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
 | E2.2 | | |
 | E2.3 | | |
