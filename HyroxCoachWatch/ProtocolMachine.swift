@@ -8,8 +8,9 @@ import OSLog
 final class ProtocolMachine: ObservableObject {
     @Published private(set) var report = ""
     @Published private(set) var restoreReport = "Checking persisted state…"
+    @Published private(set) var diskReport = "Disk not inspected yet."
 
-    private let store: StateStore
+    private var store: StateStore
     private var state: WorkoutState
     private var timer: Timer?
     private var lastError: String?
@@ -24,6 +25,7 @@ final class ProtocolMachine: ObservableObject {
             stateStartedAt: now
         )
         restoreOnLaunch()
+        refreshDiskReport()
         refreshReport()
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -31,6 +33,11 @@ final class ProtocolMachine: ObservableObject {
                 self?.refreshReport()
             }
         }
+    }
+
+    var crashPoint: StateStore.CrashPoint {
+        get { store.crashPoint }
+        set { store.crashPoint = newValue }
     }
 
     func start() {
@@ -108,24 +115,63 @@ final class ProtocolMachine: ObservableObject {
         }
     }
 
+    func refreshDiskReport() {
+        diskReport = store.inspect()
+    }
+
+    func cleanUpTempFiles() {
+        do {
+            try store.cleanUpTempFiles()
+            refreshDiskReport()
+        } catch {
+            diskReport = "Temp-file cleanup failed: \(error.localizedDescription)\n\(store.inspect())"
+            AppLog.lifecycle.error("\(AppLog.stamp(), privacy: .public) E2.2b temp-file cleanup failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     func restoreOnLaunch() {
+        let crashDescription = consumeLastCrashDescription()
+
         do {
             guard let restoredState = try store.load() else {
-                restoreReport = "No persisted state to restore."
+                restoreReport = [
+                    "No persisted state to restore.",
+                    crashDescription
+                ].compactMap { $0 }.joined(separator: "\n")
                 AppLog.lifecycle.info("\(AppLog.stamp(), privacy: .public) E2.2 no persisted state found")
                 return
             }
 
             state = restoredState
             let age = Date().timeIntervalSince(restoredState.stateStartedAt)
-            restoreReport = "Restored \(Self.kindDescription(restoredState.kind)); state began \(Self.durationDescription(age)) ago; \(restoredState.completedSegments.count) segments complete."
+            restoreReport = [
+                "Restored \(Self.kindDescription(restoredState.kind)); state began \(Self.durationDescription(age)) ago; \(restoredState.completedSegments.count) segments complete.",
+                crashDescription
+            ].compactMap { $0 }.joined(separator: "\n")
             AppLog.lifecycle.info("\(AppLog.stamp(), privacy: .public) E2.2 restored kind=\(String(describing: restoredState.kind), privacy: .public) stateAge=\(age, privacy: .public) segments=\(restoredState.completedSegments.count, privacy: .public)")
         } catch {
             let message = "Load failed: \(error.localizedDescription)"
-            restoreReport = message
+            restoreReport = [message, crashDescription]
+                .compactMap { $0 }
+                .joined(separator: "\n")
             lastError = message
             AppLog.lifecycle.error("\(AppLog.stamp(), privacy: .public) E2.2 state load failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    private func consumeLastCrashDescription() -> String? {
+        let defaults = UserDefaults.standard
+        guard let rawPoint = defaults.string(forKey: "e22b.lastCrashPoint") else {
+            return nil
+        }
+        let date = defaults.object(forKey: "e22b.lastCrashDate") as? Date
+        defaults.removeObject(forKey: "e22b.lastCrashPoint")
+        defaults.removeObject(forKey: "e22b.lastCrashDate")
+
+        if let date {
+            return "Last crash point: \(rawPoint) at \(Self.crashDateFormatter.string(from: date))."
+        }
+        return "Last crash point: \(rawPoint)."
     }
 
     private func commit(_ candidate: WorkoutState, operation: String) {
@@ -262,4 +308,11 @@ final class ProtocolMachine: ObservableObject {
         }
         return "\(sign)\(minutes)m \(seconds)s"
     }
+
+    private static let crashDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MMM d HH:mm:ss"
+        return formatter
+    }()
 }

@@ -12,6 +12,8 @@ struct ContentView: View {
     @StateObject private var recoveryProbe = RecoveryProbe()
     @StateObject private var machine = ProtocolMachine()
     @State private var isShowingCrashConfirmation = false
+    @State private var selectedCrashPoint = StateStore.CrashPoint.none
+    @State private var isShowingPersistenceCrashConfirmation = false
 
     var body: some View {
         List {
@@ -115,6 +117,35 @@ struct ContentView: View {
                 }
                 Button("Reset") {
                     machine.reset()
+                }
+                Picker("Crash point", selection: $selectedCrashPoint) {
+                    ForEach(StateStore.CrashPoint.allCases, id: \.self) { point in
+                        Text(point.rawValue).tag(point)
+                    }
+                }
+                Button("E2.2b Save with crash point") {
+                    isShowingPersistenceCrashConfirmation = true
+                }
+                .disabled(selectedCrashPoint == .none)
+                .confirmationDialog(
+                    "Save and deliberately crash the app?",
+                    isPresented: $isShowingPersistenceCrashConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Save and crash", role: .destructive) {
+                        machine.crashPoint = selectedCrashPoint
+                        machine.start()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will end the app at \(selectedCrashPoint.rawValue).")
+                }
+                Button("E2.2b Inspect disk") {
+                    machine.refreshDiskReport()
+                }
+                Text(machine.diskReport)
+                Button("E2.2b Clean temp files") {
+                    machine.cleanUpTempFiles()
                 }
             }
         }
