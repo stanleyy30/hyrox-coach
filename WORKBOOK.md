@@ -522,6 +522,34 @@ Note also that `RecoveryProbe` **discards the recovered session** — it calls `
 
 ---
 
+## E2.0b — Is `recoverActiveWorkoutSession` idempotent?
+
+*Added 2026-08-24 after E2.0 falsified the background-relaunch hypothesis. Predictions written before the code was changed.*
+
+**Why this exists.** E1.3 showed two identical consecutive calls returning different answers — "no active session", then "recovered state running". A pure query cannot do that. Either the call has side effects, or something outside the app changes between calls. E2.0 ruled out a resurrected process, so the cause must be inside the call or inside HealthKit's own bookkeeping.
+
+**A supporting detail in my own code:** `RecoveryProbe` currently **discards** the recovered session. It calls `associatedWorkoutBuilder()` and retains nothing. If a recovered session registers an endpoint that is only released when the object is retained and properly ended, discarding it could leave a registration behind that nothing can clear.
+
+Setup: on a clean launch with a workout running, call `recoverActiveWorkoutSession` **twice in succession**, reporting both results separately. Then repeat with the returned session **retained** in a property rather than discarded, and compare.
+
+**My prediction**
+
+1. **The two calls will not agree.** If they return the same result twice, the non-idempotence hypothesis dies immediately and E1.3's behaviour needs a different explanation again.
+2. **Retaining the session will change the outcome.** Specifically, I expect discarding it to be what leaves the dangling endpoint, so the retained version should either succeed cleanly or fail *consistently* rather than alternating.
+3. If the first call fails with "already exists" on a genuinely clean launch — no prior recovery in that process — then the registration survives process death, which the app cannot see or control. That would make it a HealthKit-level constraint rather than an app bug.
+4. **The honest possibility I cannot rule out:** the mechanism may be none of the above. Two hypotheses have already died this cycle, and I have no documentation for any of this — only observed behaviour.
+5. Whatever the mechanism, the practical rule for L2 will be the same: recovery must be attempted defensively, its result checked rather than assumed, and the returned session retained.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
 ## E2.1 — The state machine, on paper before in code
 
 Setup: draw the HYROX session as typed states and transitions. Deliberately a design artifact, not code. Kept in two versions — before implementation and after — because the diff is the learning.
@@ -679,6 +707,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
 | E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
+| E2.0b | | |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
 | E2.1 | | |
 | E2.2 | | |
