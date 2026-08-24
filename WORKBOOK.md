@@ -29,7 +29,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · launch path settled · E2.1 next |
+| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 v1 design done · E2.2 next |
 | L3 · Ownership | D5–D6 | **Aug 27–28** | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
@@ -610,13 +610,32 @@ Setup: draw the HYROX session as typed states and transitions. Deliberately a de
 3. **Accidental advance will be the hardest to model.** Undoing a mis-tap means restoring the previous state *and* its timestamps, so the machine needs history, not just a current state.
 4. Every state must carry a **start timestamp**, never an accumulating duration — a direct consequence of L1's measured rule.
 
-**Actual result**
+**Actual result — v1 written 2026-08-24**
 
-<!-- -->
+Design document at `design/L2-state-machine.md`. 183 lines, written before any implementation, with a v2 to follow after coding so the diff can be examined.
+
+| Measure | Ordinary progression | Awkward paths only | Total |
+|---|---:|---:|---:|
+| State kinds | 6 — Idle, Preparing, Running, InRoxzone, InStation, Completed | 4 — Recovering, Paused, Interrupted, Abandoned | 10 |
+| Transition rules | 6 | **20** | 26 |
+| Ratio (awkward : ordinary) | | states **0.67 : 1** · transitions **3.33 : 1** | |
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Happy path is small — roughly five state kinds, repeated sixteen times | **Confirmed** — six ordinary state kinds |
+| 2 | The awkward paths will outnumber the happy path | **MIXED, and the split is the finding.** By transition rules, overwhelmingly yes: 20 against 6, more than three to one. By state kinds, no: 4 against 6. |
+| 3 | Accidental advance will be the hardest to model; undo needs history, not just current state | **Confirmed** — it is the only path requiring a bounded LIFO `undoHistory` of complete state snapshots, including original timestamps, stored inside the same atomic envelope |
+| 4 | Every state must carry a start timestamp, never an accumulating duration | **Confirmed and held throughout** — a direct consequence of L1's measurement |
+
+**What the mixed result actually taught.** The prediction assumed awkward handling would show up as *more states*. It does not. It shows up as **more edges between the same states** — pause, interruption, death and mis-tap are mostly transitions into and out of a small number of extra states, not a proliferation of new ones.
+
+That distinction matters for implementation. A design measured by state count looks deceptively simple; the complexity lives in the transition table, which is where the bugs will be too. Had the count been reported only by states, the prediction would have read as falsified and the real conclusion — that correction logic dominates — would have been missed.
+
+**Prediction 3 produced the most concrete design consequence.** Undo cannot be reconstructed from the current state: restoring a mis-tap means restoring the *original* timestamps, not creating a fresh state that looks similar. v1 bounds the history to the two most recent user-driven advances, which covers an immediate mis-tap and one compound correction without turning persistence into an unbounded event log.
+
+**Nine open questions** are recorded at the end of the design, several of which are experiments rather than decisions — notably whether temp-file-then-rename always leaves a complete envelope, and whether station boundaries can round-trip as offsets from the recovered `startDate` without drift. Those two feed directly into E2.2 and E2.3.
 
 ---
 
@@ -758,6 +777,6 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
 | E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
-| E2.1 | | |
+| E2.1 | 3 confirmed, 1 mixed | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
 | E2.2 | | |
 | E2.3 | | |
