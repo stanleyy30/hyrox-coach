@@ -15,6 +15,10 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var isEnding = false
     @Published private(set) var latestResult = "Not started"
+    /// E2.3 needs the session's start instant as the anchor for segment offsets.
+    /// HKWorkoutSession exposes no stable UUID before the workout is finished,
+    /// so the start date is the only identity available while it is running.
+    @Published private(set) var sessionStartDate: Date?
 
     private let healthStore = HKHealthStore()
     private var session: HKWorkoutSession?
@@ -52,6 +56,7 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
 
             let start = Date()
             startDate = start
+            sessionStartDate = start
             newSession.startActivity(with: start)
             AppLog.workout.info("\(AppLog.stamp(), privacy: .public) E1.2 session start requested activityType=\(activityType.rawValue)")
 
@@ -169,6 +174,7 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
         session = nil
         builder = nil
         startDate = nil
+        sessionStartDate = nil
         isRunning = false
         isStarting = false
         isEnding = false

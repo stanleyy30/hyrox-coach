@@ -3,7 +3,7 @@
 import Foundation
 
 struct WorkoutState: Codable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
     static let maximumUndoHistoryCount = 2
 
     enum Kind: Codable, Equatable {
@@ -44,6 +44,8 @@ struct WorkoutState: Codable {
     let schemaVersion: Int
     let sessionID: UUID
     let protocolStartedAt: Date
+    let healthKitSessionStartDate: Date?
+    let healthKitSessionUUID: String?
     let kind: Kind
     let stateStartedAt: Date
     let completedSegments: [CompletedSegment]
@@ -53,6 +55,8 @@ struct WorkoutState: Codable {
         schemaVersion: Int = WorkoutState.currentSchemaVersion,
         sessionID: UUID,
         protocolStartedAt: Date,
+        healthKitSessionStartDate: Date? = nil,
+        healthKitSessionUUID: String? = nil,
         kind: Kind,
         stateStartedAt: Date,
         completedSegments: [CompletedSegment] = [],
@@ -61,6 +65,8 @@ struct WorkoutState: Codable {
         self.schemaVersion = schemaVersion
         self.sessionID = sessionID
         self.protocolStartedAt = protocolStartedAt
+        self.healthKitSessionStartDate = healthKitSessionStartDate
+        self.healthKitSessionUUID = healthKitSessionUUID
         self.kind = kind
         self.stateStartedAt = stateStartedAt
         self.completedSegments = completedSegments
@@ -72,6 +78,14 @@ struct WorkoutState: Codable {
         schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
         sessionID = try container.decode(UUID.self, forKey: .sessionID)
         protocolStartedAt = try container.decode(Date.self, forKey: .protocolStartedAt)
+        healthKitSessionStartDate = try container.decodeIfPresent(
+            Date.self,
+            forKey: .healthKitSessionStartDate
+        )
+        healthKitSessionUUID = try container.decodeIfPresent(
+            String.self,
+            forKey: .healthKitSessionUUID
+        )
         kind = try container.decode(Kind.self, forKey: .kind)
         stateStartedAt = try container.decode(Date.self, forKey: .stateStartedAt)
         completedSegments = try container.decode(

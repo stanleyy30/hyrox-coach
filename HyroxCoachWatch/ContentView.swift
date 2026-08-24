@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var isShowingCrashConfirmation = false
     @State private var selectedCrashPoint = StateStore.CrashPoint.none
     @State private var isShowingPersistenceCrashConfirmation = false
+    @State private var reconciliationAttachReport = "HK session not attached."
 
     var body: some View {
         List {
@@ -152,6 +153,27 @@ struct ContentView: View {
                 Button("E2.2b Clean temp files") {
                     machine.cleanUpTempFiles()
                 }
+            }
+
+            Section("E2.3 Reconciliation") {
+                Button("E2.3 Attach HK session") {
+                    if let start = workoutManager.sessionStartDate {
+                        // HKWorkoutSession has no public UUID until the workout is
+                        // finished, so identity is carried by the start instant.
+                        machine.attachHealthKitSession(
+                            startDate: start,
+                            uuid: "unavailable-until-finished"
+                        )
+                        reconciliationAttachReport = "Attached HK session start \(start.formatted(date: .omitted, time: .standard))."
+                    } else {
+                        reconciliationAttachReport = "No workout session is running — start E1.2 first."
+                    }
+                }
+                Text(reconciliationAttachReport)
+                Button("E2.3 Compare records") {
+                    machine.refreshReconciliation()
+                }
+                Text(machine.reconciliationReport)
             }
         }
     }

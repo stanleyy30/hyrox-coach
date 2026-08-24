@@ -9,6 +9,7 @@ final class ProtocolMachine: ObservableObject {
     @Published private(set) var report = ""
     @Published private(set) var restoreReport = "Checking persisted state…"
     @Published private(set) var diskReport = "Disk not inspected yet."
+    @Published private(set) var reconciliationReport = "Records not compared yet."
 
     private var store: StateStore
     private var state: WorkoutState
@@ -72,6 +73,8 @@ final class ProtocolMachine: ObservableObject {
         let nextState = WorkoutState(
             sessionID: state.sessionID,
             protocolStartedAt: state.protocolStartedAt,
+            healthKitSessionStartDate: state.healthKitSessionStartDate,
+            healthKitSessionUUID: state.healthKitSessionUUID,
             kind: nextKind,
             stateStartedAt: now,
             completedSegments: state.completedSegments + [closedSegment],
@@ -90,6 +93,8 @@ final class ProtocolMachine: ObservableObject {
         let restoredState = WorkoutState(
             sessionID: state.sessionID,
             protocolStartedAt: state.protocolStartedAt,
+            healthKitSessionStartDate: state.healthKitSessionStartDate,
+            healthKitSessionUUID: state.healthKitSessionUUID,
             kind: snapshot.kind,
             stateStartedAt: snapshot.stateStartedAt,
             completedSegments: snapshot.completedSegments,
@@ -117,6 +122,84 @@ final class ProtocolMachine: ObservableObject {
 
     func refreshDiskReport() {
         diskReport = store.inspect()
+    }
+
+    func attachHealthKitSession(startDate: Date, uuid: String) {
+        let attachedState = WorkoutState(
+            sessionID: state.sessionID,
+            protocolStartedAt: state.protocolStartedAt,
+            healthKitSessionStartDate: startDate,
+            healthKitSessionUUID: uuid,
+            kind: state.kind,
+            stateStartedAt: state.stateStartedAt,
+            completedSegments: state.completedSegments,
+            undoHistory: state.undoHistory
+        )
+
+        do {
+            try store.save(attachedState)
+            state = attachedState
+            lastError = nil
+            refreshReport()
+            refreshReconciliation()
+            AppLog.workout.info("\(AppLog.stamp(), privacy: .public) E2.3 attached HK session UUID=\(uuid, privacy: .public) startDate=\(startDate.description, privacy: .public)")
+        } catch {
+            lastError = "Attach HealthKit session failed: \(error.localizedDescription)"
+            AppLog.workout.error("\(AppLog.stamp(), privacy: .public) E2.3 attach failed: \(error.localizedDescription, privacy: .public)")
+            refreshReport()
+        }
+    }
+
+    func refreshReconciliation() {
+        var lines = [
+            "Semantic protocolStartedAt: \(Self.reconciliationDateFormatter.string(from: state.protocolStartedAt))"
+        ]
+
+        guard let healthKitStartDate = state.healthKitSessionStartDate else {
+            lines.append("HealthKit session: no session is attached")
+            lines.append("Delta (semantic − HealthKit): unavailable")
+            lines.append("ROUND-TRIP: unavailable until a HealthKit session is attached")
+            reconciliationReport = lines.joined(separator: "\n")
+            return
+        }
+
+        lines.append("HealthKit startDate: \(Self.reconciliationDateFormatter.string(from: healthKitStartDate))")
+        if let uuid = state.healthKitSessionUUID {
+            lines.append("HealthKit UUID: \(uuid)")
+        } else {
+            lines.append("HealthKit UUID: unavailable")
+        }
+
+        let startDeltaMilliseconds = state.protocolStartedAt
+            .timeIntervalSince(healthKitStartDate) * 1_000
+        lines.append(
+            "Delta (semantic − HealthKit): \(String(format: "%+.3f", startDeltaMilliseconds)) ms"
+        )
+
+        var worstRoundTripMilliseconds = 0.0
+        for (index, segment) in state.completedSegments.enumerated() {
+            let offset = segment.startedAt.timeIntervalSince(healthKitStartDate)
+            let recomputedDate = healthKitStartDate.addingTimeInterval(offset)
+            let roundTripMilliseconds = abs(
+                recomputedDate.timeIntervalSince(segment.startedAt) * 1_000
+            )
+            worstRoundTripMilliseconds = max(
+                worstRoundTripMilliseconds,
+                roundTripMilliseconds
+            )
+            lines.append(
+                "\(index + 1). \(Self.segmentDescription(segment)): startedAt \(Self.reconciliationDateFormatter.string(from: segment.startedAt)); offset \(String(format: "%+.6f", offset)) s; recomputed \(Self.reconciliationDateFormatter.string(from: recomputedDate))"
+            )
+        }
+
+        if worstRoundTripMilliseconds <= 1 {
+            lines.append("ROUND-TRIP: EXACT")
+        } else {
+            lines.append(
+                "ROUND-TRIP: DRIFT (worst \(String(format: "%.3f", worstRoundTripMilliseconds)) ms)"
+            )
+        }
+        reconciliationReport = lines.joined(separator: "\n")
     }
 
     func cleanUpTempFiles() {
@@ -149,6 +232,13 @@ final class ProtocolMachine: ObservableObject {
                 crashDescription
             ].compactMap { $0 }.joined(separator: "\n")
             AppLog.lifecycle.info("\(AppLog.stamp(), privacy: .public) E2.2 restored kind=\(String(describing: restoredState.kind), privacy: .public) stateAge=\(age, privacy: .public) segments=\(restoredState.completedSegments.count, privacy: .public)")
+        } catch let StateStore.StoreError.unsupportedSchema(found, expected) {
+            let message = "Version mismatch: persisted workout state schema \(found); expected \(expected)."
+            restoreReport = [message, crashDescription]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            lastError = message
+            AppLog.lifecycle.error("\(AppLog.stamp(), privacy: .public) E2.2 state load version mismatch found=\(found, privacy: .public) expected=\(expected, privacy: .public)")
         } catch {
             let message = "Load failed: \(error.localizedDescription)"
             restoreReport = [message, crashDescription]
@@ -313,6 +403,12 @@ final class ProtocolMachine: ObservableObject {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "MMM d HH:mm:ss"
+        return formatter
+    }()
+
+    private static let reconciliationDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
 }
