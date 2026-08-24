@@ -871,6 +871,112 @@ Added to the design's open questions rather than patched, since the fix is a des
 
 ---
 
+# CYCLE L2 · RESULTS SUMMARY
+
+**Status: COMPLETE.** Days 3–4 (Aug 24–25), finished on Day 4.
+
+**Conditions for every measurement** — Apple Watch Ultra 3 (watchOS 26.6), Xcode 26.6. Always-On Display off, app launched from the watch, **no debugger attached**, installed via CLI. Crash tests used deterministic injection inside the code rather than force-quit timing.
+
+---
+
+## The question, and the answer
+
+> What has to be true for a workout to survive the app dying?
+
+**Three things, all now measured:**
+
+1. **Accept that the app really dies.** watchOS does *not* resurrect a crashed app to sustain a workout session. There is no safety net.
+2. **Recover exactly once, at launch, before anything creates a session.** `recoverActiveWorkoutSession` is not idempotent, and an "endpoint already exists" error is a self-inflicted ordering bug — never something to retry around.
+3. **Persist timestamps atomically on every transition.** Proven to lose nothing across process death, and proven atomic at three separate crash points inside the write.
+
+---
+
+## Results by experiment
+
+| Experiment | Question | Result |
+|---|---|---|
+| **E2.0** | What happens when the app dies mid-workout? | **Central prediction FALSIFIED.** The system does not relaunch it. Two launches, both by hand. |
+| **E2.0b** | Is `recoverActiveWorkoutSession` idempotent? | **No.** Call 1 recovered; call 2 failed against call 1's own session. **Solved E1.3.** |
+| **E2.1** | The state machine, on paper | 10 states, 26 transitions. Ordinary 6 states / 6 transitions; awkward 4 states / **20 transitions**. |
+| **E2.2** | Persist on transition, then kill it | **Nothing lost.** Segments identical, elapsed carried through the dead interval. |
+| **E2.2b** | Is the atomic write actually atomic? | **Yes — 5 of 5 predictions confirmed.** Survived all three injected crash points. |
+| **E2.3** | Reconcile HealthKit's record with mine | **ROUND-TRIP: EXACT.** Offsets remove reconciliation entirely. |
+
+---
+
+## The two headline measurements
+
+**Persistence survives death.** Killed during Run 2 with four segments complete; on relaunch every segment duration was identical and the current state's elapsed clock had continued through the interval the process did not exist for — 21.4 s before the kill, 36.0 s at restore.
+
+**The write is genuinely atomic.** Crash before the temp write, during it (leaving a truncated 1619-byte file), and after it but before the replace (leaving a **complete 3239-byte** file beside a 2552-byte committed one). In every case the committed envelope loaded intact and the newer temp file was correctly ignored.
+
+---
+
+## Prediction tally
+
+| Experiment | Confirmed | Wrong | Untested / other |
+|---|---:|---:|---|
+| E2.0 (5) | 1 | **2** | 1 untested, 1 undecided |
+| E2.0b (5) | 3 | 0 | 1 refined, 1 unneeded |
+| E2.1 (4) | 3 | 0 | 1 mixed |
+| E2.2 (5) | 1 | **1** | 3 untested (2 later closed by E2.2b) |
+| E2.2b (5) | **5** | 0 | 0 |
+| E2.3 (4) | 2 | **1** | 1 design position |
+
+**Four wrong predictions, and three of them were the most valuable results in the cycle:**
+
+- **E2.0 predictions 1 and 2** — the background-relaunch hypothesis. Killing it forced the search that found the real mechanism.
+- **E2.2 prediction 5** — expected a boring first-run failure; there wasn't one.
+- **E2.3 prediction 1** — expected a sub-second delta; got 11.4 seconds, and the reason (operator delay, not precision error) changed the source-of-truth rule from a preference into a requirement.
+
+---
+
+## Architectural rules L2 established
+
+1. **The app is not resurrected.** Design for real termination; there is no system safety net for an active workout session.
+2. **Recovery is a one-shot launch decision.** Call once, before any session can be instantiated; retain the result; never call again. "Endpoint already exists" means a session was created before recovery ran.
+3. **Persist on every transition, atomically** — temp file then replace. Verified against three crash points; a complete-but-uncommitted temp file is correctly ignored.
+4. **Store timestamps, never durations.** L1's rule extended from a *suspended* process to a *dead* one.
+5. **Anchor boundaries as offsets from HealthKit's `startDate`.** Round-trips exactly, and removes reconciliation as a problem rather than requiring it to be solved.
+6. **HealthKit's `startDate` and the protocol's start are different events.** The gap is semantic — operator delay — not noise, and the two must never be substituted for one another.
+
+---
+
+## Defects found, and where they came from
+
+| Defect | Found by | Nature |
+|---|---|---|
+| `start()` discards the HealthKit link | E2.3's first run | **Design gap.** The natural order — session then protocol — is the one that breaks it, silently. |
+| Crash-save button called `start()` not `advance()` | An anomalous **132-byte** temp file | **Harness defect.** Both prior rounds had reported clean, plausible passes. |
+| A "missing rationale" reported in the E2.1 design | Re-reading the design | **False finding of mine** — a grep using `\|` alternation under `-E` returned 0 and the zero was trusted. |
+| E2.1 specified launch-recovery ordering but not protocol-start ordering | E2.3 | A rule learned in one place was not generalised to the neighbouring one. |
+
+---
+
+## The pattern, now inside the instruments
+
+L1 recorded six cases of a success signal concealing a failure. L2 added four more, and they moved inward:
+
+- `App installed:` reported success on an install that had silently not replaced the binary
+- The E2.2b harness passed twice while testing a 264-byte empty state instead of a real transition
+- A broken grep returned 0 and was read as evidence of absence
+- The E2.1 design was audited as sound while containing an unnoticed ordering gap
+
+**In L1 the tooling misled. In L2 the instruments built to catch that did.** The transferable rule is unchanged and now better evidenced: **a tool's output is evidence about the tool as much as about the subject**, and a number that does not fit is worth more attention than a result that does.
+
+---
+
+## Open questions carried into L3
+
+1. Should starting a protocol **require** an active session, or carry an already-attached one forward?
+2. Stale `.tmp` files accumulate with no cleanup policy. Harmless for correctness; unbounded over time.
+3. Does `activityType` affect session longevity? *(open since L1)*
+4. What is the battery cost of a 90-minute session? *(open since L1)*
+
+**A scoping note for L3.** L3 asks which half of the record HealthKit owns and which is mine. **E2.3 has already answered much of it** — HealthKit owns the envelope, the app owns what happened inside it, and offsets bind them without drift. L3 may be better spent on what that ownership split makes *possible* — whether the workout genuinely crosses to the phone unaided, and what arrives when it does — than on re-deciding a boundary already settled by measurement.
+
+---
+
 # CYCLE L3 · Ownership — Days 5–6 (Aug 27–28) · MIDPOINT
 
 **Learning question:** Which half of the record does HealthKit own, and which is mine?
