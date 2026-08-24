@@ -1,7 +1,7 @@
 # C4 Predict–Test–Explain Workbook
 
 **Owner:** Stanley Young
-**Act phase:** Day 1 = 2026-08-20 → Day 10 = 2026-08-29
+**Act phase:** Day 1 = 2026-08-20 → Day 10 = 2026-09-04. Ten **working** days: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4.
 **Rule:** predictions are written BEFORE the experiment runs. Results after. Never edit a prediction once the test has run — a wrong prediction is the evidence, not a mistake.
 
 > This is the single living workbook for C4. It is updated in place, never regenerated.
@@ -28,12 +28,17 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
-| L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | ▶ E2.0 ran — central prediction falsified · E2.0b next |
-| L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
-| L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
-| L5 · Honest representation | D8–D9 | Aug 27–28 | What can this data honestly say, and what can it not? | — |
-| L6 · Wrapper | D10 | Aug 29 | (no new work — presentation prep only) | — |
+| L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
+| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 ran, central prediction falsified · E2.0b next |
+| L3 · Ownership | D5–D6 | **Aug 27–28** | Which half of the record does HealthKit own, and which is mine? | — |
+| L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
+| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
+
+**Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
+
+**This means the project is ON SCHEDULE, not behind.** An earlier note in this workbook assumed consecutive days and concluded L2 was running two days late. That was wrong: 24 August is Day 3, the first day of L2, exactly as planned.
+
+**Cycle L6 has been dropped.** The Gantt carries five cycles, not six. Presentation preparation now sits inside L5 or after Act ends on 4 September, rather than consuming a numbered day of its own.
 
 ---
 
@@ -456,7 +461,7 @@ A seventh belongs to the record-keeping rather than the tooling: E1.3's first fa
 
 ---
 
-# CYCLE L2 · Recoverability — Days 3–4 (Aug 22–23)
+# CYCLE L2 · Recoverability — Days 3–4 (Aug 24–25)
 
 **Learning question:** What has to be true for a workout to survive the app dying?
 
@@ -585,7 +590,7 @@ Setup: after a recovery, compare the recovered session's `startDate` against the
 
 ---
 
-# CYCLE L3 · Ownership — Day 5 (Aug 24) · MIDPOINT
+# CYCLE L3 · Ownership — Days 5–6 (Aug 27–28) · MIDPOINT
 
 **Learning question:** Which half of the record does HealthKit own, and which is mine?
 
@@ -595,7 +600,7 @@ Provisional:
 
 ---
 
-# CYCLE L4 · Reliable transport — Days 6–7 (Aug 25–26)
+# CYCLE L4 · Reliable transport — Days 7–8 (Aug 31 – Sep 1)
 
 **Learning question:** How does data survive an unreliable link between two devices?
 
@@ -606,7 +611,7 @@ Provisional:
 
 ---
 
-# CYCLE L5 · Honest representation — Days 8–9 (Aug 27–28)
+# CYCLE L5 · Honest representation — Days 9–10 (Sep 3–4)
 
 **Learning question:** What can this data honestly say, and what can it not?
 
@@ -617,9 +622,9 @@ Provisional:
 
 ---
 
-# CYCLE L6 · Wrapper — Day 10 (Aug 29)
+# CYCLE L6 · Wrapper — REMOVED
 
-No new work. Presentation prep, evidence assembly, rehearsal.
+Dropped in the 2026-08-24 re-baseline. The Gantt carries five cycles. Presentation prep, evidence assembly and rehearsal now sit inside L5 or after Act closes on 4 September, rather than taking a numbered Act day.
 
 ---
 
