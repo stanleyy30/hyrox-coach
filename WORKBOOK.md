@@ -30,7 +30,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
-| L3 · Ownership | D5–D6 | **Aug 27–28** | Which half of the record does HealthKit own, and which is mine? | — |
+| L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | ▶ rescoped 2026-08-24 · predictions written |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
 
@@ -977,13 +977,86 @@ L1 recorded six cases of a success signal concealing a failure. L2 added four mo
 
 ---
 
-# CYCLE L3 · Ownership — Days 5–6 (Aug 27–28) · MIDPOINT
+# CYCLE L3 · The crossing — Days 5–6 (Aug 27–28) · MIDPOINT
 
-**Learning question:** Which half of the record does HealthKit own, and which is mine?
+**Learning question (RESCOPED 2026-08-24):** *Does a workout actually cross to the phone unaided, and what arrives when it does?*
 
-Provisional:
-- E3.1 — Save a workout on the watch. Does it reach the iPhone with none of my code involved?
-- E3.2 — What survives the crossing, and what is lost? Produces the ownership table.
+**Why rescoped.** L3 originally asked which half of the record HealthKit owns and which is mine. **E2.3 largely answered that by measurement**: HealthKit owns the envelope, the app owns what happened inside it, and offsets bind them without drift. Re-deciding a settled boundary would be busywork.
+
+What remains genuinely untested is the assumption this entire project was reframed around on Day 1 — that **HealthKit carries the workout to the phone on its own**. Everything in L4 depends on it, and nothing has ever verified it. If it is false, L4 is a much larger problem than planned. If it is true, the question becomes what *else* can ride along.
+
+**Predictions below were written 2026-08-24, before any L3 code existed.**
+
+---
+
+## E3.0 — Does the workout cross at all, unaided?
+
+Setup: finish a workout on the watch. Do not write any transport code. Watch for it on the iPhone — first in Apple's Health app, then in our own iOS app querying `HKWorkout`.
+
+**My prediction**
+
+1. **It crosses with no code of mine.** This is the Day 1 reframe and it is still an assumption. I expect it to hold, because the whole architecture was rebuilt around it.
+2. **Not instantly.** I expect seconds to minutes, not sub-second. Sync is opportunistic, not a push.
+3. **Conditions will matter** — phone nearby, possibly unlocked, possibly on the same network. If it only crosses under conditions a HYROX athlete would not meet mid-race, "it works" is misleading.
+4. Once present, it is queryable by our own iOS app, not merely visible in Apple's Health app — same store, same data.
+5. **Highest-stakes prediction in the project so far.** Every architectural decision since Day 1 rests on it, and it has never been tested.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E3.1 — What actually arrives?
+
+Setup: compare what the watch recorded against what the phone can see. Enumerate the arriving `HKWorkout` field by field.
+
+**My prediction**
+
+1. **The physiological envelope survives**: `startDate`, `endDate`, `duration`, heart-rate samples, active energy.
+2. `activityType` survives as the approximation chosen — `.crossTraining`. HYROX has no dedicated type, so the record will describe the workout slightly wrongly and permanently.
+3. **None of my semantic structure survives.** No stations, no roxzone boundaries, no segment identities. HealthKit has nowhere to put them.
+4. Therefore the phone will show a workout of the right length with no idea what happened inside it — which is exactly the gap L4 exists to close.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E3.2 — Can custom metadata ride along?
+
+*The experiment that could reshape L4.*
+
+Setup: attach a metadata dictionary to the workout at `finishWorkout` time, containing a compact encoding of the semantic record — station names and their offsets from `startDate`. Check whether it survives the crossing and is readable on the phone.
+
+**My prediction**
+
+1. `HKWorkout` accepts a metadata dictionary of property-list types, and **it crosses with the workout**. If so, some semantic data can travel on HealthKit's own sync rather than needing WatchConnectivity at all.
+2. **But it can only be set once, at finish.** It cannot be updated per transition, so it carries a *summary*, never a live stream.
+3. There will be practical limits — size, and permitted value types — that are not clearly documented and must be found by testing.
+4. **If 1 and 2 hold, L4 shrinks substantially**: the phone would already receive a complete post-workout record, and WatchConnectivity would only be needed for live mid-workout data, which the iOS side does not display anyway.
+5. **Lowest confidence in this cycle.** I do not know the size limits, whether nested structures survive, or whether metadata is treated as first-class during sync. This is the one most likely to fail in an interesting way.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+**Order of work:** E3.0 first and alone — if the workout does not cross, E3.1 and E3.2 are meaningless and the cycle becomes about why not.
 
 ---
 
@@ -1072,4 +1145,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
 | E2.2b | **5 of 5 confirmed** | Atomic at all three crash points. Round 3's complete 3239 B temp correctly ignored. Harness bug found mid-run via an anomalous byte count; two earlier scorings corrected. |
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
+| E3.0 | | |
+| E3.1 | | |
+| E3.2 | | |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
