@@ -181,3 +181,11 @@ stateDiagram-v2
 - If recovery returns `nil` while persisted semantic state claims an active workout, can HealthKit provide an authoritative end timestamp, or must the record retain an unknown end?
 - Does the selected workout activity category affect session longevity, energy estimates or interruption behaviour during a full-length race?
 - What is the battery cost of retaining an active session for a typical 90-minute HYROX workout?
+
+---
+
+## 8. Defect found in testing (2026-08-24)
+
+`start()` constructs a fresh state with no HealthKit fields, so beginning a protocol **after** attaching a workout session silently discards the anchor linking the two records. The natural real-world order — start session, then start protocol — is precisely the order that breaks it, with no error and no symptom until reconciliation is attempted.
+
+Open question this raises: should starting a protocol **require** an active session, or carry an already-attached one forward? Version 1 specified the launch-recovery ordering rigorously but did not generalise the same care to the protocol-start path.

@@ -29,7 +29,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity CONFIRMED 5/5 · E2.3 next |
+| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · Ownership | D5–D6 | **Aug 27–28** | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
@@ -814,13 +814,56 @@ Setup: after a recovery, compare the recovered session's `startDate` against the
 3. Therefore station boundaries should be stored as **offsets from HealthKit's `startDate`**, not as independent absolute times. That way the two records cannot drift apart, and there is nothing to reconcile.
 4. If prediction 3 holds, "reconciliation" mostly disappears as a problem — which would be a better outcome than solving it, and is worth testing before building a merge routine nobody needs.
 
-**Actual result**
+**Actual result — ROUND-TRIP: EXACT**
 
-<!-- -->
+*Run 2026-08-24, 11:13. Workout session started, protocol started, four segments advanced, HealthKit session attached, then compared.*
+
+```
+Semantic protocolStartedAt : 2026-08-24T04:12:17.032Z
+HealthKit startDate        : 2026-08-24T04:12:05.668Z
+HealthKit UUID             : unavailable-until-finished
+Delta (semantic − HealthKit): +11364.458 ms
+```
+
+| # | Segment | Stored absolute | Offset from HK start | Recomputed |
+|---|---|---|---|---|
+| 1 | Preparing | 04:12:17.032Z | +11.364458 s | 04:12:17.032Z |
+| 2 | Run 1 | 04:12:24.457Z | +18.789525 s | 04:12:24.457Z |
+| 3 | Roxzone 1 | 04:12:25.565Z | +19.897077 s | 04:12:25.565Z |
+| 4 | Station 1 — SkiErg | 04:12:26.615Z | +20.946878 s | 04:12:26.615Z |
+
+**ROUND-TRIP: EXACT** — every recomputed absolute time matched its stored value.
+
+Offsets verified independently against the reported timestamps: 11.364, 18.789, 19.897, 20.947 s. All agree.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | The two records will not match exactly; expect a difference well under a second | **Direction right, magnitude badly wrong.** The delta was **11.4 seconds**, not sub-second — off by more than an order of magnitude. |
+| 2 | HealthKit authoritative for the envelope, the app for what happened inside it | **Upheld as a design position**, not empirically tested here. Recorded as a decision, not a result. |
+| 3 | Boundaries stored as offsets from the HealthKit `startDate` round-trip without drift | **Confirmed — EXACT** across all four segments |
+| 4 | If 3 holds, reconciliation mostly disappears rather than needing to be solved | **Confirmed.** With a shared origin there is nothing to merge. |
+
+**Why prediction 1 was wrong is more interesting than the number.** I assumed the gap would be precision error — sub-second clock or write latency. It is not. The 11.4 seconds is **operator delay**: the HealthKit session was started at 04:12:05 and the protocol at 04:12:17, two separate taps by a human.
+
+So the delta is not noise to be tolerated, it is **semantic**. The two timestamps describe genuinely different events: when the workout began, and when the protocol began. Treating them as interchangeable — as a sub-second assumption invites — would silently misattribute eleven seconds of a race.
+
+That sharpens prediction 2 from a preference into a requirement: HealthKit's `startDate` is the anchor because it marks the workout, and the semantic record's own start is a separate fact that must not be substituted for it.
+
+**Prediction 3 is the result that matters, and it holds.** Offsets recomputed to the stored millisecond every time. With both records anchored to one origin, there is no drift to reconcile — the merge routine predicted to be avoidable is, in fact, avoidable.
+
+---
+
+### Defect found during E2.3 — `start()` discards the HealthKit link
+
+The first attempt returned *"no session is attached"* despite a session running. Cause: `ProtocolMachine.start()` constructs a fresh `WorkoutState` with no HealthKit fields, so starting a protocol **after** attaching silently wipes the anchor.
+
+This is not merely an experiment-ordering inconvenience. In a real workout the sequence is naturally *start session → start protocol*, which is exactly the order that destroys the link — with no error, and no symptom until reconciliation is attempted much later.
+
+**The E2.1 design did not catch this.** It specified the launch-recovery ordering rigorously, having been burned by it, but said nothing about the protocol-start path carrying the session reference. A rule learned in one place was not generalised to the neighbouring one.
+
+Added to the design's open questions rather than patched, since the fix is a design decision: protocol start should either require a session or carry the existing one forward.
 
 ---
 
@@ -923,4 +966,4 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
 | E2.2b | **5 of 5 confirmed** | Atomic at all three crash points. Round 3's complete 3239 B temp correctly ignored. Harness bug found mid-run via an anomalous byte count; two earlier scorings corrected. |
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
-| E2.3 | | |
+| E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
