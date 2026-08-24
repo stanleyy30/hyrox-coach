@@ -737,6 +737,36 @@ Completed segments: 4
 
 ---
 
+## E2.2b — Is the atomic write actually atomic?
+
+*Added 2026-08-24. E2.2 proved persistence works; it did not prove it survives a kill landing inside a write. Predictions written before the code was changed.*
+
+**Why a deterministic test rather than a lucky one.** Force-quitting and hoping to land inside a write is not an experiment, it is a raffle — the write window is milliseconds wide. Instead the save path gets **injectable crash points**, so the dangerous moment can be hit on purpose:
+
+- `beforeTempWrite` — crash before anything is written
+- `duringTempWrite` — write a deliberately truncated temp file, then crash
+- `afterTempWriteBeforeReplace` — complete temp file exists, crash before the atomic replace
+
+After each, relaunch and ask what `load()` returns.
+
+**My prediction**
+
+1. **All three crash points leave the previous complete envelope intact.** `load()` returns the last successfully committed state — never a partial one, never a throw. This is the whole claim behind temp-file-then-replace.
+2. **`afterTempWriteBeforeReplace` is the real test.** A complete, newer temp file exists alongside the older real file. If the implementation ever reads the temp file, or replaces on read, this is where it breaks. I expect it not to.
+3. **Stale `.tmp` files accumulate** and nothing cleans them up. Harmless for correctness, but a small leak, and worth knowing before it becomes a mystery later.
+4. **The state lost is the in-flight transition only** — the app returns to the state before the transition that was being written. That is the acceptable failure mode E2.2 predicted but never exercised.
+5. **Lowest confidence: whether `replaceItemAt` is genuinely atomic on watchOS.** It is documented as such, but this project has already found documented behaviour that did not hold. If it is not atomic, prediction 1 fails and the persistence design needs a different mechanism — which would be far better to learn now than in L4.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
 ## E2.3 — Reconcile HealthKit's record with mine
 
 Setup: after a recovery, compare the recovered session's `startDate` against the persisted semantic state's session start. Decide, in writing, which wins when they disagree.
@@ -855,5 +885,6 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
+| E2.2b | | |
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E2.3 | | |
