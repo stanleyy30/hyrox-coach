@@ -10,6 +10,7 @@ struct ContentView: View {
     @StateObject private var backgroundProbe = BackgroundProbe()
     @StateObject private var workoutManager = WorkoutSessionManager()
     @StateObject private var recoveryProbe = RecoveryProbe()
+    @StateObject private var machine = ProtocolMachine()
     @State private var isShowingCrashConfirmation = false
 
     var body: some View {
@@ -97,6 +98,23 @@ struct ContentView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("This will end the current experiment run.")
+                }
+            }
+
+            Section("E2.2 Persistence") {
+                Text(machine.restoreReport)
+                Text(machine.report)
+                Button("Start protocol") {
+                    machine.start()
+                }
+                Button("Advance") {
+                    machine.advance()
+                }
+                Button("Undo") {
+                    machine.undo()
+                }
+                Button("Reset") {
+                    machine.reset()
                 }
             }
         }
