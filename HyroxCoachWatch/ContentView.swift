@@ -71,6 +71,14 @@ struct ContentView: View {
                 }
                 .disabled(recoveryProbe.isRecovering)
                 Text(recoveryProbe.latestResult)
+                Button("E2.0b Recover twice") {
+                    Task { _ = await recoveryProbe.attemptRecoveryTwice() }
+                }
+                .disabled(recoveryProbe.isRecovering)
+                Button("E2.0b Release session") {
+                    recoveryProbe.releaseRetainedSession()
+                }
+                Text(recoveryProbe.latestTwiceResult)
             }
 
             Section("E2.0 Crash relaunch") {
