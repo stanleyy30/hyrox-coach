@@ -29,7 +29,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 v1 design done · E2.2 next |
+| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.3 next |
 | L3 · Ownership | D5–D6 | **Aug 27–28** | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
@@ -680,13 +680,60 @@ Setup: write semantic state to disk at every transition. Kill the app mid-statio
 4. What *is* genuinely lost: any transition that happened between the last successful write and the death. With per-transition writes that window is one transition at most.
 5. I expect the first implementation to fail on relaunch for a boring reason — a decoding error or a missing file on first run — rather than anything conceptually interesting.
 
-**Actual result**
+**Actual result — NOTHING LOST**
 
-<!-- -->
+*Run 2026-08-24. App killed by force-quit while in **Run 2** (not mid-station, despite the shorthand). No debugger.*
+
+**Before the kill, 10:02**
+
+```
+No persisted state to restore.          ← this launch started fresh
+Current: Run 2
+Current elapsed: 21.4s
+Completed segments: 4
+  1. Preparing:            4.0s
+  2. Run 1:                1.8s
+  3. Roxzone 1:            5.5s
+  4. Station 1 — SkiErg:   5.8s
+```
+
+**After force-quit and relaunch, 10:03**
+
+```
+Restored Run 2; state began 36.0s ago; 4 segments complete.
+Current: Run 2
+Current elapsed: 59.0s
+Completed segments: 4
+  1. Preparing:            4.0s
+  2. Run 1:                1.8s
+  3. Roxzone 1:            5.5s
+  4. Station 1 — SkiErg:   5.8s
+```
+
+| Check | Result |
+|---|---|
+| State kind restored | Run 2 — correct |
+| Completed segments | 4, with **identical durations** before and after |
+| Elapsed across the death | 21.4 s → **36.0 s at restore** → 59.0 s — the dead time is included |
+| Absent-state path | The earlier launch correctly reported "No persisted state to restore" rather than inventing one |
+
+**The elapsed figures are the proof.** The current state's clock did not restart, pause, or lose the interval during which the process did not exist. Elapsed was recomputed from the stored `stateStartedAt` at the moment of display, so the app was able to report time it was never running for.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Writing on every transition is cheap; no reason to batch | **Not measured.** No lag was observable, but nothing was timed. Recorded as unmeasured rather than confirmed. |
+| 2 | Nothing meaningful is lost, provided timestamps are persisted rather than durations | **Confirmed, decisively.** Segment durations identical; current elapsed carried straight through the death. |
+| 3 | The write must be atomic — a crash during a write corrupts the file | **Implemented but untested.** `replaceItemAt` is in place; no kill was landed *during* a write, so atomicity itself remains unproven. |
+| 4 | At most one transition is lost — whatever happened between the last write and the death | **Untested.** The kill landed mid-state, not mid-transition, so the lossy window was never exercised. |
+| 5 | The first implementation will fail on relaunch for a boring reason — a decode error or missing file | **WRONG.** It worked first time. |
+
+**Prediction 2 closes the loop opened in L1.** The measured rule was "compute durations from timestamps, never from counting" because a suspended app loses time silently. E2.2 shows the same rule surviving a stronger test: not merely a suspended process, but one that *ceased to exist*. A stored timestamp does not care that the app was dead; a stored duration would have lost every second of it.
+
+**Three of five predictions remain untested, and that is the honest state.** Atomicity, the lossy transition window, and write cost were all designed for but not exercised. The experiment proved that persistence *works*; it did not prove that persistence is *safe under adversarial timing*. Those are different claims, and only the first has evidence.
+
+**The one wrong prediction is worth keeping.** I expected a boring first-run failure — a decode error, a missing file. There wasn't one. Predicting friction is cheap and it did not happen here; the interesting failures in this project have consistently come from somewhere other than where they were expected.
 
 ---
 
@@ -808,5 +855,5 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
-| E2.2 | | |
+| E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E2.3 | | |
