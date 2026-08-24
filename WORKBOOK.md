@@ -29,7 +29,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | Aug 20–21 | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | ▶ predictions written · E2.0 next |
+| L2 · Recoverability | D3–D4 | Aug 22–23 | What has to be true for a workout to survive the app dying? | ▶ E2.0 ran — central prediction falsified · E2.0b next |
 | L3 · Ownership | D5 | Aug 24 | Which half of the record does HealthKit own, and which is mine? | — |
 | L4 · Reliable transport | D6–D7 | Aug 25–26 | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D8–D9 | Aug 27–28 | What can this data honestly say, and what can it not? | — |
@@ -343,7 +343,7 @@ Cause: the E1.2 workout was **still running** and its session manager still held
 2. After the workout is ended, recovery reports **no session available**.
 3. A subsequent attempt then returns a **running session with the original `startDate`**.
 
-**What this suggests (hypothesis, not established):** an app holding an active `HKWorkoutSession` is not really terminated by a force-quit — the system keeps or relaunches an instance to sustain the session, so its endpoint is still registered when the user reopens the app. Ending the workout releases the endpoint held by *this* process's session object, after which recovery can return the session that is still running at system level. That would explain all three states and the preserved start time, but the mechanism has **not** been proven here.
+**What this suggested at the time (hypothesis — since FALSIFIED by E2.0 on 2026-08-24):** an app holding an active `HKWorkoutSession` is not really terminated by a force-quit — the system keeps or relaunches an instance to sustain the session, so its endpoint is still registered when the user reopens the app. **E2.0 showed the app stays dead. This explanation is wrong and the cause of the endpoint conflict remains unknown.** Ending the workout releases the endpoint held by *this* process's session object, after which recovery can return the session that is still running at system level. That would explain all three states and the preserved start time, but the mechanism has **not** been proven here.
 
 **How this changes the earlier conclusion.** The original entry recorded recovery as working, with the failed first attempt written off as a malformed test. That was true but incomplete. The failure is not a one-off procedural slip — it is the **reliable** outcome of the exact scenario L2 must handle: the app dying mid-workout. Recovery succeeded only after an intervening end-workout, which is not something a crashed app gets to do.
 
@@ -480,13 +480,40 @@ Setup: start a workout session, kill the app several ways — force-quit gesture
 4. `recoverActiveWorkoutSession` will therefore need to tolerate the conflict — either by retrying, or by detecting that the process already holds a session and using that instead of recovering.
 5. **Lowest confidence in this cycle.** All of the above is inference from one reproducible symptom, not from documentation. I expect at least one of these to be wrong.
 
-**Actual result**
+**Actual result — PREDICTION 1 FALSIFIED**
 
-<!-- -->
+*Run 2026-08-24, Apple Watch Ultra 3. App installed with **no debugger attached**, launched from the watch. **A workout session was confirmed running at the moment of the crash.***
+
+| Reading | Value |
+|---|---|
+| Launch 1 (opened by hand) | 08:57:22 |
+| Deliberate crash | 08:58:14 — 52 s into the session |
+| Launch 2 | 09:00:15 |
+| First launch after crash | **2 m 0 s** |
+| Total launches | **2** |
+| Latest launch followed a crash | YES |
+
+**The system did NOT relaunch the app.** Two launches, both performed by hand — the first to start, the second after deliberately waiting two minutes. The gap of exactly 2 m 0 s matches the wait, not an autonomous restart. Had watchOS resurrected the process to sustain the workout, a third launch would have appeared within seconds of the crash. None did.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Force-quit/crash does not really kill it; the system relaunches the app to sustain the session | **WRONG.** The app stayed dead. |
+| 2 | Therefore an instance already exists on reopening, which is why recovery reports "already exists" | **WRONG — it depended on #1.** |
+| 3 | A deliberate crash may behave differently from a force-quit | **Untested** — force-quit comparison not yet run |
+| 4 | Recovery will need to tolerate the conflict | **Undecided** — the conflict's cause is now unknown |
+| 5 | Lowest confidence in this cycle; I expect at least one of these to be wrong | **Correct.** Two were wrong, including the central one. |
+
+**E1.3 is now MORE mysterious, not less.** The background-relaunch hypothesis was the only explanation on the table for "task server endpoint already exists", and it is dead. If no process survives the crash, nothing should hold that endpoint when the app is reopened — yet E1.3 reproduced the conflict every time.
+
+**New hypothesis, and the obvious next test: `recoverActiveWorkoutSession` may not be idempotent.** E1.3's own sequence is the clue — two identical consecutive calls returned *different* answers ("no active session", then "recovered state running"). A pure query cannot do that. It suggests the call itself has side effects: registering an endpoint, or transitioning state, so that the second call observes a world the first one changed.
+
+Note also that `RecoveryProbe` **discards the recovered session** — it calls `associatedWorkoutBuilder()` and keeps nothing. If a successful recovery registers an endpoint that is only released when the session object is retained and properly ended, a discarded session could leave a dangling registration behind.
+
+**Consequence for L2.** The cycle cannot proceed to persistence design yet. E2.2 assumed the app dies and is restored; E2.0 confirms the app really does die, which is good — but the recovery path is now less understood than when the cycle opened. **E2.0b must come next:** call recovery twice in a row on a clean launch and observe whether the call changes what it reports.
+
+**Worth stating plainly:** this cycle's central prediction was wrong, and I would not have found that out by building persistence on top of it. It would have surfaced somewhere around Day 8, as a bug that looked like something else.
 
 ---
 
@@ -647,7 +674,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
 | E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
-| E2.0 | | |
+| E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
 | E2.1 | | |
 | E2.2 | | |
 | E2.3 | | |
