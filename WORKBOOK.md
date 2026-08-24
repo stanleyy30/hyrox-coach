@@ -654,7 +654,15 @@ A design cannot be run, so it was audited instead: the tables were parsed and co
 
 **One structural detail worth noting:** `Completed` is *not* a dead end. It has an outgoing transition, because undo from `Completed` is reachable. That is deliberate and matches the mis-tap handling — but it means the machine has a terminal state that can be re-entered, which is the kind of thing that produces surprises in implementation. Flagged rather than treated as a defect.
 
-**One gap found.** The design states recovery must be called "exactly once" at launch, but nowhere records **why** — that `recoverActiveWorkoutSession` is not idempotent and a second call fails against the first call's own session. The rule is present; the measured reason behind it is not. That matters because a future reader (including me) may see a single-call constraint, judge it over-cautious, and add a retry — which E2.0b showed is exactly the wrong response.
+**A gap was reported here and was WRONG. Retained as evidence rather than deleted.**
+
+The audit claimed the design gave the call-recovery-once rule without its measured reason. It does not. The design already states, in the launch-time recovery section: *"This strict order is measured, not defensive folklore: the API is not idempotent, and a second call fails against the first call's own session… It is a programming-ordering bug and must not be retried around."*
+
+**Cause of the false finding:** the audit grep used `\|` for alternation while running with `-E`, where alternation is `|`. The pattern was matched literally, returned zero, and the zero was read as "absent" without checking the surrounding text.
+
+**This is the project's own recurring failure, committed by the auditor.** A tool returned a clean-looking result — a count of 0 — and it was trusted instead of verified. Every other instance in this workbook involved a green signal hiding a failure; this one is the inverse, a null result manufacturing one. The lesson is the same: **a tool's output is evidence about the tool as much as about the subject.**
+
+Practical consequence: a negative grep result proves nothing until the pattern itself has been shown to match something it should.
 
 **Verdict: the design's claims about itself are accurate.** The counts are real, the graph is well-formed, and the timestamp constraint holds throughout. The recorded E2.1 result stands unchanged.
 
@@ -779,6 +787,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | Aug 20 | `devicectl` install reported shell exit code 0 | Install succeeded | Install had **failed** (`IXRemoteErrorDomain error 6`); the exit code came from the shell, not the install. The old build was then launched instead | Read the actual output, not the exit status. Reinstalled from Xcode |
 | Aug 21 | E1.1 ticks never stopped with the wrist down | watchOS is more permissive than predicted | The **debugger was attached** after installing from Xcode. A debug session prevents suspension, so the experiment measured the debugger, not the OS | Stop the Xcode session; launch from the watch itself |
 | Aug 21 | `recoverActiveWorkoutSession` threw "endpoint already exists" | Recovery is broken on this watchOS version | Initially read as a malformed test. On repetition it proved **reproducible**: recovery reliably fails after a force-quit while a workout is active. The one-off explanation was wrong | Open question for L2 — see the E1.3 amendment |
+| Aug 24 | Audit grep reported a missing rationale in the design | The design had a documentation gap | The **grep pattern was malformed** — `\|` alternation used with `-E`. It matched literally and returned 0. The rationale was present all along | Verify a pattern matches something known-present before trusting a zero result |
 | | | | | |
 
 **Note on the first row:** this is exactly the class of failure L1 is about — the symptom pointed at one layer (no Xcode) and the cause was in another (toolchain selection). Worth keeping as the template for how rows in this table should read.
