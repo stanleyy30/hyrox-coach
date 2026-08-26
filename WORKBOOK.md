@@ -31,7 +31,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
-| L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
+| L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | ▶ rescoped 2026-08-26 · predictions written |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
@@ -1132,14 +1132,164 @@ All four custom keys arrived intact and complete. Nothing was truncated, renamed
 
 ---
 
-# CYCLE L4 · Reliable transport — Days 7–8 (Aug 31 – Sep 1)
+# CYCLE L3 · RESULTS SUMMARY
 
-**Learning question:** How does data survive an unreliable link between two devices?
+**Status: COMPLETE.** Run 2026-08-26, ahead of its Aug 27–28 slot.
 
-Provisional:
-- E4.1 — All four `WCSession` methods against the same offline scenario. Predictions recorded first, per method. Produces the transfer-mode matrix.
-- E4.2 — Duplicate delivery: does the same payload arrive twice, and do stable IDs prevent duplicates?
-- E4.3 — Write the ADR: ownership rules, merge policy, rejected options.
+**Conditions** — Apple Watch Ultra 3 (watchOS 26.6), iPhone 16 Pro Max (iOS 26.6.1). Workouts finished from HyroxCoach on the watch, read by HyroxCoach on the phone. **No transport code exists anywhere in this project.**
+
+---
+
+## The question, and the answer
+
+> Does a workout actually cross to the phone unaided, and what arrives when it does?
+
+**Yes, and more arrives than expected.** A workout finished on the watch reaches the phone within seconds, with the phone **locked** and **in another room**. The physiological record crosses on its own, and custom metadata crosses with it — so the app's own semantic record can travel the same way.
+
+---
+
+## Results by experiment
+
+| Experiment | Question | Result |
+|---|---|---|
+| **E3.0** | Does it cross at all, unaided? | **Yes.** Three workouts, three conditions, all crossed. **≤14 s**, measured on the locked case. |
+| **E3.1** | What arrives? | The envelope: UUID, start, end, duration, activity type, energy, source, device. **No semantic structure.** Only metadata was Apple's `HKIndoorWorkout`. |
+| **E3.2** | Can custom metadata ride along? | **Yes.** All four HYROX keys arrived intact, including the full segment string. |
+
+---
+
+## The crossing, measured
+
+| Condition | Crossed? |
+|---|---|
+| Phone unlocked, nearby | Yes |
+| **Phone locked** | Yes |
+| **Phone in another room** | Yes |
+
+**Prediction 3 of E3.0 was falsified, favourably.** I expected the crossing to depend on the phone being awake and close, and warned that would make it useless for an athlete whose phone sits in a locker. It does not depend on either.
+
+---
+
+## Prediction tally
+
+| Experiment | Confirmed | Wrong | Other |
+|---|---:|---:|---|
+| E3.0 (5) | 4 | **1** (falsified favourably) | — |
+| E3.1 (4) | 3 | 0 | 1 partial (HR samples unverified) |
+| E3.2 (5) | 3 | **1** (expected failure, got success) | 1 true by construction |
+
+**Both wrong predictions were pessimistic and both were wrong in the useful direction** — the crossing is less conditional than feared, and metadata worked first time where I expected it to break.
+
+---
+
+## What L3 established
+
+1. **The Day 1 reframe is true.** HealthKit carries the workout from watch to phone with no code of mine. Every architectural decision since Day 1 rested on this, and it is now measured.
+2. **It is not conditional** on the phone being unlocked or nearby.
+3. **The envelope crosses free; the meaning does not** — HealthKit has nowhere to put station identity or roxzone boundaries.
+4. **But metadata does cross**, so the semantic record can ride the same sync. Combined with E2.3's exact offset round-trip, the phone can rebuild every boundary with no merge step.
+5. `activityType` is a permanent approximation. HYROX has no HealthKit type, so the record will always describe the workout slightly wrongly.
+
+---
+
+## Untested, and it matters
+
+**The metadata size limit.** E3.2 encoded **4 segments**. A full HYROX race is roughly **25** — 8 runs, 8 roxzones, 8 stations, plus preparation — producing a string about six times longer.
+
+HealthKit's metadata limits are not clearly documented, and a limit would most likely appear as **silent truncation rather than an error**. Until tested at full length, the result is proven **only for short workouts**.
+
+**Heart-rate sample arrival** also remains unverified; the iOS instrument reports energy but does not enumerate HR samples.
+
+---
+
+## Consequence: L4 must be rescoped
+
+L4 was planned as transport work — WatchConnectivity, delivery, duplicate handling, deduplication. **Most of that now has no purpose.** The complete post-workout record already arrives by itself. What remains is live mid-workout data, which the iOS side does not display.
+
+This is the second time a measurement has dissolved planned work rather than completing it: E2.3 removed reconciliation, E3.2 has removed most of transport.
+
+---
+
+# CYCLE L4 · The limits of the free crossing — Days 7–8 (Aug 31 – Sep 1)
+
+**Learning question (RESCOPED 2026-08-26):** *Where does the free crossing break, and what genuinely still needs a transport of my own?*
+
+**Why rescoped.** L4 was planned as transport work: `WCSession` transfer modes, delivery guarantees, duplicate handling, deduplication by stable ID. **E3.2 removed the reason for most of it.** The complete post-workout record — envelope plus semantic structure — already reaches the phone on HealthKit's own sync, with no code of mine.
+
+Building a transport for data that already arrives would be work done to match a plan rather than to meet a need. What is genuinely unknown is **where that free crossing stops working**, and what, if anything, is left over.
+
+**Predictions written 2026-08-26, before any L4 code existed.**
+
+---
+
+## E4.0 — Does the metadata survive a full-length race?
+
+Setup: encode a realistic full HYROX protocol — 8 runs, 8 roxzones, 8 stations, plus preparation, around **25 segments** — into the same metadata keys, finish a workout, and read it on the phone. Compare the string received against the string sent, character for character.
+
+**My prediction**
+
+1. **It will still cross, but this is where a limit would appear.** E3.2's string was 4 segments; this is roughly six times longer.
+2. **If a limit exists, it will truncate silently rather than error.** That is the failure mode this project has met repeatedly, and the one that would be most damaging here — a partial station list looks like a complete one.
+3. **Therefore the test must compare, not merely observe.** "The metadata is present" is not evidence; only a character-for-character match against what was sent is.
+4. If it survives at 25 segments, no realistic HYROX workout will exceed it, and the free crossing carries the whole product.
+5. **Least confident:** whether the limit is on a single value, the whole dictionary, or the number of keys. Each would need a different workaround.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E4.1 — If it breaks, where exactly?
+
+*Run only if E4.0 fails.*
+
+Setup: increase the payload until it breaks, then narrow down the boundary. Record whether failure is an error, a silent truncation, or a refusal to save the workout at all.
+
+**My prediction**
+
+1. Failure will be silent — the workout saves, the metadata is short.
+2. The limit will be on the **total dictionary size**, not the key count.
+3. A workaround exists: split the segment string across several numbered keys, since the total is what matters, not any single value.
+4. If instead the whole workout fails to save, that is far more serious — an annotation would be destroying the record it describes, and metadata would have to become optional and verified.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E4.2 — What is genuinely left for a transport of my own?
+
+Setup: list what the iOS app needs that metadata cannot carry, and check each against what is already arriving.
+
+**My prediction**
+
+1. **Almost nothing is left.** The post-workout record is complete once E4.0 passes.
+2. The only candidate is **live data during the workout** — current station, elapsed time, heart rate on the phone while training. **The iOS app does not display any of it**, and the product's own division of responsibility says the phone is for after the workout.
+3. Therefore the honest answer is likely that **WatchConnectivity is not needed for this product at all**, and the right output of L4 is a written justification for not building it.
+4. **A decision not to build something is a legitimate result**, provided it is evidenced. Building `WCSession` transport to match the original plan would be the worse outcome.
+5. **Risk to watch for:** wanting to build the transport because it was planned, or because it is the more impressive thing to demonstrate. That is not a technical reason.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+**Order of work:** E4.0 first. It decides whether the free crossing carries the whole product or only part of it, and therefore whether E4.1 is needed at all.
 
 ---
 
@@ -1219,5 +1369,8 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
+| E4.0 | | |
+| E4.1 | | |
+| E4.2 | | |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
