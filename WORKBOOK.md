@@ -30,7 +30,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
-| L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | ▶ rescoped 2026-08-24 · predictions written |
+| L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | ▶ E3.0 ✔ crossing confirmed · E3.1 ✔ · E3.2 next |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
 
@@ -1001,13 +1001,37 @@ Setup: finish a workout on the watch. Do not write any transport code. Watch for
 4. Once present, it is queryable by our own iOS app, not merely visible in Apple's Health app — same store, same data.
 5. **Highest-stakes prediction in the project so far.** Every architectural decision since Day 1 rests on it, and it has never been tested.
 
-**Actual result**
+**Actual result — IT CROSSES. Even locked. Even from another room.**
 
-<!-- -->
+*Run 2026-08-26, 09:12–09:28. Three workouts finished on the watch from HyroxCoach. No transport code of any kind exists in this project.*
+
+| # | Start | End | Duration | Condition | Crossed? |
+|---|---|---|---|---|---|
+| A | 09:12:22 | 09:13:24 | 1m 1s | Phone unlocked, nearby | Yes |
+| B | 09:14:24 | 09:15:25 | 1m 0s | **Phone locked** | Yes |
+| C | 09:16:16 | 09:17:27 | 1m 10s | **Phone in another room** | Yes |
+
+All three appear in the iOS app as `Cross Training — HyroxCoach — Apple Watch`, with UUIDs, start, end, duration and active energy intact.
+
+**Measured latency: ≤ 14 seconds**, and it was measured on the *locked* case. Workout B ended at 09:15:25; the list refreshed at 09:15:39 already showed it, reporting "14s since workout ended". The true crossing time is somewhere at or under that.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | It crosses with no code of mine | **Confirmed.** The Day 1 reframe holds. |
+| 2 | Not instant — seconds to minutes | **Confirmed** — ≤14 s, at the fast end of the range |
+| 3 | Conditions will matter: phone nearby, possibly unlocked | **FALSIFIED.** It crossed with the phone locked, and again with the phone in another room. |
+| 4 | Queryable by my own app, not just visible in Apple's Health app | **Confirmed** — read directly from `HKWorkout` by HyroxCoach on iOS |
+| 5 | Highest-stakes prediction in the project | **Held.** Every architectural decision since Day 1 rested on this, and it is now measured rather than assumed. |
+
+**Prediction 3 being wrong is the most consequential result of the cycle.** I expected the crossing to be conditional — phone awake, phone close — and warned that "it works" would be misleading for an athlete whose phone sits in a locker for ninety minutes. It is not conditional. A locked phone in another room received the workout within seconds.
+
+That removes a risk that had been sitting under the whole architecture unexamined. The concern was legitimate; the answer is simply better than expected.
+
+---
+
+**Note on what this does and does not measure.** "14s since workout ended" is *time since the workout ended*, not a measured sync delay — they are only equal if the query happens the instant it arrives. So 14 s is an **upper bound**, not a measurement of the crossing itself. Establishing the true latency would need an observer query timestamping arrival, which is not built.
 
 ---
 
@@ -1022,13 +1046,34 @@ Setup: compare what the watch recorded against what the phone can see. Enumerate
 3. **None of my semantic structure survives.** No stations, no roxzone boundaries, no segment identities. HealthKit has nowhere to put them.
 4. Therefore the phone will show a workout of the right length with no idea what happened inside it — which is exactly the gap L4 exists to close.
 
-**Actual result**
+**Actual result — the envelope arrives, the meaning does not**
 
-<!-- -->
+*From the same three workouts, 2026-08-26.*
+
+| Field | Arrived? | Value seen |
+|---|---|---|
+| `UUID` | Yes | e.g. `319DF277-DD0A-4A2E-8C19-E24AC7212DD1` |
+| `startDate` / `endDate` | Yes | 09:12:22 → 09:13:24 |
+| `duration` | Yes | 1 minute, 1 second |
+| `activityType` | Yes | **Cross Training** |
+| Total active energy | Yes | 3.8 / 3.78 / 4.39 kcal |
+| Source | Yes | **HyroxCoach** |
+| Device | Yes | **Apple Watch** |
+| Metadata | Only Apple's own | **`HKIndoorWorkout = 1`** — nothing else |
+| Station identity, roxzone boundaries, segment structure | **No** | absent entirely |
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | The physiological envelope survives | **Mostly confirmed** — start, end, duration and active energy all arrived. **Heart-rate samples not verified**: the detail view reports energy but does not enumerate HR samples, so that part is untested. |
+| 2 | `activityType` survives as the chosen approximation, `.crossTraining` | **Confirmed.** The phone reports "Cross Training" — a permanent, slightly wrong description of a HYROX session, since HealthKit has no HYROX type. |
+| 3 | None of my semantic structure survives | **Confirmed.** The only metadata present is `HKIndoorWorkout`, set by Apple. Not one field of mine crossed. |
+| 4 | The phone shows a workout of the right length with no idea what happened inside it | **Confirmed exactly.** |
+
+**This is the gap L4 exists to close, now shown rather than assumed.** The phone knows a cross-training workout happened, when, for how long, and how much energy it cost. It does not know a SkiErg was involved, or that there was a roxzone, or that any of it was HYROX. The envelope crosses free; the meaning does not.
+
+**Untested:** whether heart-rate samples crossed. The instrument reports energy but not HR sample counts, so this remains open.
 
 ---
 
@@ -1145,7 +1190,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
 | E2.2b | **5 of 5 confirmed** | Atomic at all three crash points. Round 3's complete 3239 B temp correctly ignored. Harness bug found mid-run via an anomalous byte count; two earlier scorings corrected. |
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
-| E3.0 | | |
-| E3.1 | | |
+| E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
+| E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E3.2 | | |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
