@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var selectedCrashPoint = StateStore.CrashPoint.none
     @State private var isShowingPersistenceCrashConfirmation = false
     @State private var reconciliationAttachReport = "HK session not attached."
+    @State private var attachHYROXMetadata = false
 
     var body: some View {
         List {
@@ -51,14 +52,31 @@ struct ContentView: View {
             }
 
             Section("E1.2 Workout session") {
+                Toggle("Attach HYROX metadata", isOn: $attachHYROXMetadata)
                 Button(workoutManager.isRunning || workoutManager.isEnding ? "End workout" : "Start cross training") {
                     if workoutManager.isRunning || workoutManager.isEnding {
-                        workoutManager.end()
+                        if attachHYROXMetadata,
+                           let sessionStart = workoutManager.sessionStartDate {
+                            workoutManager.end(
+                                metadata: machine.healthKitMetadata(
+                                    sessionStart: sessionStart
+                                )
+                            )
+                        } else {
+                            workoutManager.end()
+                        }
                     } else {
                         workoutManager.start(activityType: .crossTraining)
                     }
                 }
                 .disabled(workoutManager.isEnding || workoutManager.isStarting)
+                Text(
+                    attachHYROXMetadata &&
+                    workoutManager.sessionStartDate != nil &&
+                    machine.completedSegmentCount > 0
+                        ? "Next end: attach metadata (\(machine.completedSegmentCount) segments)"
+                        : "Next end: no metadata (\(machine.completedSegmentCount) segments ready)"
+                )
                 Text(workoutManager.isStarting ? "Workout starting" : (workoutManager.isRunning ? "Workout running" : "Workout stopped"))
                 elapsedReadout(
                     ticks: workoutManager.tickCount,

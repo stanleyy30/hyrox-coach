@@ -41,6 +41,37 @@ final class ProtocolMachine: ObservableObject {
         set { store.crashPoint = newValue }
     }
 
+    var completedSegmentCount: Int {
+        state.completedSegments.count
+    }
+
+    func healthKitMetadata(sessionStart: Date) -> [String: String] {
+        guard !state.completedSegments.isEmpty else {
+            AppLog.workout.info("\(AppLog.stamp(), privacy: .public) HYROX metadata omitted: no completed segments")
+            return [:]
+        }
+
+        let locale = Locale(identifier: "en_US_POSIX")
+        let segments = state.completedSegments.map { segment in
+            let offset = segment.startedAt.timeIntervalSince(sessionStart)
+            return "\(Self.segmentDescription(segment))@\(String(format: "%.3f", locale: locale, offset))"
+        }
+        let protocolStartOffset = state.protocolStartedAt.timeIntervalSince(sessionStart)
+
+        // HealthKit metadata accepts property-list values. Keep this payload flat
+        // and string-only so its values cannot be changed through type coercion.
+        return [
+            "HYROXSchemaVersion": "1",
+            "HYROXSegmentCount": String(state.completedSegments.count),
+            "HYROXSegments": segments.joined(separator: ";"),
+            "HYROXProtocolStartOffset": String(
+                format: "%.3f",
+                locale: locale,
+                protocolStartOffset
+            )
+        ]
+    }
+
     func start() {
         let now = Date()
         let freshState = WorkoutState(
