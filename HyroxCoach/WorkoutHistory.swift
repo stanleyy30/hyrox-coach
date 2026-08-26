@@ -17,6 +17,59 @@ struct WorkoutRow: Identifiable {
     let metadata: [String: String]
 
     var id: UUID { uuid }
+
+    var hasHyroxMetadata: Bool {
+        metadata.keys.contains { $0.hasPrefix("HYROX") }
+    }
+
+    var hyroxReceivedSegmentLength: Int? {
+        metadata["HYROXSegments"]?.count
+    }
+
+    var hyroxIntegrity: String {
+        guard hasHyroxMetadata else {
+            return "NO HYROX METADATA"
+        }
+
+        guard let segments = metadata["HYROXSegments"],
+              let declaredLengthText = metadata["HYROXSegmentsLength"],
+              let declaredCountText = metadata["HYROXSegmentCount"],
+              let declaredLength = Int(declaredLengthText),
+              let declaredCount = Int(declaredCountText),
+              declaredLength >= 0,
+              declaredCount >= 0 else {
+            return "INCOMPLETE CONTRACT"
+        }
+
+        let receivedLength = segments.count
+        let receivedCount = segments.isEmpty
+            ? 0
+            : segments.split(separator: ";").count
+
+        if receivedLength == declaredLength && receivedCount == declaredCount {
+            return "INTACT"
+        }
+
+        let numbers = "length received \(receivedLength) vs declared \(declaredLength); count received \(receivedCount) vs declared \(declaredCount)"
+
+        if receivedLength <= declaredLength && receivedCount <= declaredCount {
+            return "TRUNCATED — \(numbers)"
+        }
+
+        return "MISMATCH — \(numbers)"
+    }
+
+    var hyroxIntegrityMarker: String? {
+        guard hasHyroxMetadata else { return nil }
+
+        if hyroxIntegrity.hasPrefix("TRUNCATED") {
+            return "TRUNCATED"
+        }
+        if hyroxIntegrity.hasPrefix("MISMATCH") {
+            return "MISMATCH"
+        }
+        return hyroxIntegrity
+    }
 }
 
 @MainActor
@@ -108,7 +161,7 @@ final class WorkoutHistory: ObservableObject {
             ?? workout.sourceRevision.productType
             ?? "unknown"
 
-        return WorkoutRow(
+        let row = WorkoutRow(
             uuid: workout.uuid,
             startDate: workout.startDate,
             endDate: workout.endDate,
@@ -125,6 +178,12 @@ final class WorkoutHistory: ObservableObject {
                 }
             )
         )
+
+        AppLog.health.info(
+            "[\(AppLog.stamp(), privacy: .public)] HYROX metadata integrity; workout: \(row.uuid.uuidString, privacy: .public); verdict: \(row.hyroxIntegrity, privacy: .public)"
+        )
+
+        return row
     }
 
     private static func readableMetadataValue(_ value: Any) -> String {

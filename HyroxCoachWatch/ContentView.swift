@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var isShowingPersistenceCrashConfirmation = false
     @State private var reconciliationAttachReport = "HK session not attached."
     @State private var attachHYROXMetadata = false
+    @State private var isShowingSeedFullRaceConfirmation = false
 
     var body: some View {
         List {
@@ -136,6 +137,26 @@ struct ContentView: View {
                 }
                 Button("Reset") {
                     machine.reset()
+                }
+                Button("E4.0 Seed full race (25 segments)") {
+                    isShowingSeedFullRaceConfirmation = true
+                }
+                .confirmationDialog(
+                    "Overwrite the current protocol with a seeded full race?",
+                    isPresented: $isShowingSeedFullRaceConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Seed full race", role: .destructive) {
+                        machine.seedFullRace()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This is test data, not a real workout.")
+                }
+                if let sessionStart = workoutManager.sessionStartDate {
+                    Text("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments)")
+                } else {
+                    Text("HYROXSegments: start workout to calculate (\(machine.completedSegmentCount) segments)")
                 }
                 Picker("Crash point", selection: $selectedCrashPoint) {
                     ForEach(StateStore.CrashPoint.allCases, id: \.self) { point in

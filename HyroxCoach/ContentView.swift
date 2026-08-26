@@ -78,6 +78,9 @@ private struct WorkoutRowView: View {
             Text(row.startDate.formatted(date: .abbreviated, time: .standard))
             Text("\(row.activityTypeName) — \(durationText(row.duration))")
             Text("\(row.sourceName) — \(row.deviceName)")
+            if let marker = row.hyroxIntegrityMarker {
+                Text("HYROX — \(marker)")
+            }
         }
     }
 
@@ -103,6 +106,16 @@ private struct WorkoutDetailView: View {
                 field("Source", row.sourceName)
                 field("Device", row.deviceName)
                 field("Total active energy", activeEnergyText)
+            }
+
+            Section("HYROX Integrity") {
+                Text(row.hyroxIntegrity)
+                    .font(.headline)
+                    .textSelection(.enabled)
+                field(
+                    "Received segment-string character count",
+                    row.hyroxReceivedSegmentLength.map(String.init) ?? "Not available"
+                )
             }
 
             Section("Metadata") {

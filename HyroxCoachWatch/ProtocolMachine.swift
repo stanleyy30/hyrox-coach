@@ -45,6 +45,10 @@ final class ProtocolMachine: ObservableObject {
         state.completedSegments.count
     }
 
+    func healthKitSegmentsCharacterCount(sessionStart: Date) -> Int {
+        healthKitSegments(sessionStart: sessionStart).count
+    }
+
     func healthKitMetadata(sessionStart: Date) -> [String: String] {
         guard !state.completedSegments.isEmpty else {
             AppLog.workout.info("\(AppLog.stamp(), privacy: .public) HYROX metadata omitted: no completed segments")
@@ -52,10 +56,7 @@ final class ProtocolMachine: ObservableObject {
         }
 
         let locale = Locale(identifier: "en_US_POSIX")
-        let segments = state.completedSegments.map { segment in
-            let offset = segment.startedAt.timeIntervalSince(sessionStart)
-            return "\(Self.segmentDescription(segment))@\(String(format: "%.3f", locale: locale, offset))"
-        }
+        let segments = healthKitSegments(sessionStart: sessionStart)
         let protocolStartOffset = state.protocolStartedAt.timeIntervalSince(sessionStart)
 
         // HealthKit metadata accepts property-list values. Keep this payload flat
@@ -63,13 +64,92 @@ final class ProtocolMachine: ObservableObject {
         return [
             "HYROXSchemaVersion": "1",
             "HYROXSegmentCount": String(state.completedSegments.count),
-            "HYROXSegments": segments.joined(separator: ";"),
+            "HYROXSegments": segments,
+            // Declaring the sent character count exposes silent truncation downstream.
+            "HYROXSegmentsLength": String(segments.count),
             "HYROXProtocolStartOffset": String(
                 format: "%.3f",
                 locale: locale,
                 protocolStartOffset
             )
         ]
+    }
+
+    // Experiment affordance: this creates seeded test data, not a real workout.
+    func seedFullRace() {
+        let stationNames = [
+            "SkiErg",
+            "Sled Push",
+            "Sled Pull",
+            "Burpee Broad Jumps",
+            "Rowing",
+            "Farmers Carry",
+            "Sandbag Lunges",
+            "Wall Balls"
+        ]
+        let runDurations: [TimeInterval] = [375, 370, 380, 385, 390, 395, 400, 405]
+        let roxzoneDurations: [TimeInterval] = [40, 42, 45, 43, 46, 44, 48, 47]
+        let stationDurations: [TimeInterval] = [240, 270, 240, 270, 240, 240, 270, 210]
+
+        var startedAt = state.protocolStartedAt
+        var segments: [WorkoutState.CompletedSegment] = []
+
+        func appendSegment(
+            kind: WorkoutState.SegmentKind,
+            identity: WorkoutState.SegmentIdentity,
+            duration: TimeInterval
+        ) {
+            let endedAt = startedAt.addingTimeInterval(duration)
+            segments.append(
+                WorkoutState.CompletedSegment(
+                    kind: kind,
+                    identity: identity,
+                    startedAt: startedAt,
+                    endedAt: endedAt
+                )
+            )
+            startedAt = endedAt
+        }
+
+        appendSegment(kind: .preparing, identity: .preparation, duration: 60)
+        for index in stationNames.indices {
+            let number = index + 1
+            appendSegment(
+                kind: .running,
+                identity: .leg(number),
+                duration: runDurations[index]
+            )
+            appendSegment(
+                kind: .roxzone,
+                identity: .leg(number),
+                duration: roxzoneDurations[index]
+            )
+            appendSegment(
+                kind: .station,
+                identity: .station(index: number, name: stationNames[index]),
+                duration: stationDurations[index]
+            )
+        }
+
+        let seededState = WorkoutState(
+            sessionID: state.sessionID,
+            protocolStartedAt: state.protocolStartedAt,
+            healthKitSessionStartDate: state.healthKitSessionStartDate,
+            healthKitSessionUUID: state.healthKitSessionUUID,
+            kind: .completed,
+            stateStartedAt: startedAt,
+            completedSegments: segments
+        )
+
+        do {
+            try store.save(seededState)
+            state = seededState
+            lastError = nil
+            refreshReport()
+            AppLog.lifecycle.info("\(AppLog.stamp(), privacy: .public) E4.0 seeded test data, not a real workout: full race segments=\(segments.count, privacy: .public)")
+        } catch {
+            record(error, operation: "seed full race")
+        }
     }
 
     func start() {
@@ -383,6 +463,14 @@ final class ProtocolMachine: ObservableObject {
             startedAt: state.stateStartedAt,
             endedAt: endedAt
         )
+    }
+
+    private func healthKitSegments(sessionStart: Date) -> String {
+        let locale = Locale(identifier: "en_US_POSIX")
+        return state.completedSegments.map { segment in
+            let offset = segment.startedAt.timeIntervalSince(sessionStart)
+            return "\(Self.segmentDescription(segment))@\(String(format: "%.3f", locale: locale, offset))"
+        }.joined(separator: ";")
     }
 
     private static func kindDescription(_ kind: WorkoutState.Kind) -> String {
