@@ -30,7 +30,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
-| L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | ▶ E3.0 ✔ crossing confirmed · E3.1 ✔ · E3.2 next |
+| L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · Reliable transport | D7–D8 | **Aug 31 – Sep 1** | How does data survive an unreliable link between two devices? | — |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
 
@@ -1091,13 +1091,40 @@ Setup: attach a metadata dictionary to the workout at `finishWorkout` time, cont
 4. **If 1 and 2 hold, L4 shrinks substantially**: the phone would already receive a complete post-workout record, and WatchConnectivity would only be needed for live mid-workout data, which the iOS side does not display anyway.
 5. **Lowest confidence in this cycle.** I do not know the size limits, whether nested structures survive, or whether metadata is treated as first-class during sync. This is the one most likely to fail in an interesting way.
 
-**Actual result**
+**Actual result — THE METADATA CROSSES.**
 
-<!-- -->
+*Run 2026-08-26, 10:38–10:39. Workout finished on the watch with the metadata toggle on. No transport code exists in this project.*
+
+Workout `F0DE085D-9774-409A-80C1-6F4B41FF597E`, 42 s, Cross Training, source HyroxCoach, device Apple Watch.
+
+Metadata as read on the **iPhone**:
+
+```
+HKIndoorWorkout           1
+HYROXProtocolStartOffset  17.355
+HYROXSchemaVersion        1
+HYROXSegmentCount         4
+HYROXSegments             Preparing@17.355;Run 1@19.090;
+                          Roxzone 1@20.073;Station 1 — SkiErg@21.422
+```
+
+All four custom keys arrived intact and complete. Nothing was truncated, renamed, or dropped. `HYROXProtocolStartOffset` matches the `Preparing` offset exactly, as it should, since the protocol begins with that state.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | `HKWorkout` metadata crosses with the workout | **Confirmed.** Written on the watch, read on the phone, with no code of mine moving it. |
+| 2 | It can only be set once, at finish — a summary, never a live stream | **True by construction**, since it is attached at `finishWorkout`. Not adversarially tested. |
+| 3 | There will be practical limits on size and value types | **Not reached at this scale.** Four segments produced a short string. **Untested at full race length.** |
+| 4 | If 1 and 2 hold, L4 shrinks substantially | **Confirmed.** The phone now receives a complete post-workout semantic record with no transport code. |
+| 5 | Lowest confidence in the cycle; most likely to fail in an interesting way | **Wrong — it did not fail at all.** I expected this to break and it worked first time. |
+
+**What this changes.** E3.1 showed the phone receiving a workout of the right length with no idea what happened inside it. E3.2 closes that gap using the same free sync: station names and their offsets now travel with the workout. Combined with E2.3's proof that offsets round-trip exactly, the phone can reconstruct every boundary as an absolute time without a merge step.
+
+**The size limit is the one real caveat.** This test encoded **4 segments**. A full HYROX race is 8 runs, 8 roxzones and 8 stations — around **25 segments**, producing a string roughly six times longer. HealthKit's metadata limits are not clearly documented, and a limit could appear as silent truncation rather than an error. **Until that is tested at full length, "metadata crosses" is proven only for short workouts.**
+
+**Consequence for L4.** L4 was planned as transport work — WatchConnectivity, delivery, duplicates, deduplication. Most of that now has no purpose: the post-workout record already arrives. What remains is live mid-workout data, which the iOS side does not display. **L4 should be rescoped before it starts, in the same way L3 was.**
 
 ---
 
@@ -1192,5 +1219,5 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
-| E3.2 | | |
+| E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
