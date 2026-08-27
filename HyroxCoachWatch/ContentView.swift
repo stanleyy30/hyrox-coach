@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var reconciliationAttachReport = "HK session not attached."
     @State private var attachHYROXMetadata = false
     @State private var isShowingSeedFullRaceConfirmation = false
+    @State private var seedFullRaceReport = ""
 
     var body: some View {
         List {
@@ -139,7 +140,13 @@ struct ContentView: View {
                     machine.reset()
                 }
                 Button("E4.0 Seed full race (25 segments)") {
-                    isShowingSeedFullRaceConfirmation = true
+                    if workoutManager.isRunning,
+                       workoutManager.sessionStartDate != nil {
+                        seedFullRaceReport = ""
+                        isShowingSeedFullRaceConfirmation = true
+                    } else {
+                        seedFullRaceReport = "A workout session has to be started first."
+                    }
                 }
                 .confirmationDialog(
                     "Overwrite the current protocol with a seeded full race?",
@@ -147,16 +154,31 @@ struct ContentView: View {
                     titleVisibility: .visible
                 ) {
                     Button("Seed full race", role: .destructive) {
-                        machine.seedFullRace()
+                        guard workoutManager.isRunning,
+                              let sessionStart = workoutManager.sessionStartDate else {
+                            seedFullRaceReport = "A workout session has to be started first."
+                            return
+                        }
+                        machine.seedFullRace(sessionStart: sessionStart)
+                        seedFullRaceReport = "Seeded test data from the running workout session start."
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("This is test data, not a real workout.")
                 }
+                if !seedFullRaceReport.isEmpty {
+                    Text(seedFullRaceReport)
+                }
                 if let sessionStart = workoutManager.sessionStartDate {
-                    Text("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments)")
+                    if let offsets = machine.healthKitSegmentOffsetRange(
+                        sessionStart: sessionStart
+                    ) {
+                        Text("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments); first offset \(offsets.first, format: .number.precision(.fractionLength(3)))s, last offset \(offsets.last, format: .number.precision(.fractionLength(3)))s")
+                    } else {
+                        Text("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments); first offset —, last offset —")
+                    }
                 } else {
-                    Text("HYROXSegments: start workout to calculate (\(machine.completedSegmentCount) segments)")
+                    Text("HYROXSegments: start workout to calculate (\(machine.completedSegmentCount) segments); first offset —, last offset —")
                 }
                 Picker("Crash point", selection: $selectedCrashPoint) {
                     ForEach(StateStore.CrashPoint.allCases, id: \.self) { point in

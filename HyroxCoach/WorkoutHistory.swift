@@ -26,6 +26,21 @@ struct WorkoutRow: Identifiable {
         metadata["HYROXSegments"]?.count
     }
 
+    var hyroxFirstAndLastOffsets: String? {
+        guard hasHyroxMetadata else { return nil }
+        guard let segments = metadata["HYROXSegments"], !segments.isEmpty else {
+            return "Not available"
+        }
+
+        let entries = segments.split(
+            separator: ";",
+            omittingEmptySubsequences: false
+        )
+        let first = entries.first.map { Self.rawOffsetText(from: $0) } ?? "Not available"
+        let last = entries.last.map { Self.rawOffsetText(from: $0) } ?? "Not available"
+        return "first: \(first); last: \(last)"
+    }
+
     var hyroxIntegrity: String {
         guard hasHyroxMetadata else {
             return "NO HYROX METADATA"
@@ -46,17 +61,76 @@ struct WorkoutRow: Identifiable {
             ? 0
             : segments.split(separator: ";").count
 
-        if receivedLength == declaredLength && receivedCount == declaredCount {
-            return "INTACT"
-        }
-
         let numbers = "length received \(receivedLength) vs declared \(declaredLength); count received \(receivedCount) vs declared \(declaredCount)"
 
-        if receivedLength <= declaredLength && receivedCount <= declaredCount {
-            return "TRUNCATED — \(numbers)"
+        guard receivedLength == declaredLength && receivedCount == declaredCount else {
+            if receivedLength <= declaredLength && receivedCount <= declaredCount {
+                return "TRUNCATED — \(numbers)"
+            }
+
+            return "MISMATCH — \(numbers)"
         }
 
-        return "MISMATCH — \(numbers)"
+        guard let offsets = Self.parseOffsets(from: segments) else {
+            return "INCOMPLETE CONTRACT"
+        }
+
+        for (index, offset) in offsets.enumerated() where offset.value < 0 {
+            let position = index == 0 ? "first offset" : "offset \(index + 1)"
+            return "IMPLAUSIBLE: \(position) \(offset.text) is negative"
+        }
+
+        for index in offsets.indices.dropFirst() {
+            let previousIndex = offsets.index(before: index)
+            let previous = offsets[previousIndex]
+            let current = offsets[index]
+
+            if current.value <= previous.value {
+                return "IMPLAUSIBLE: offset \(index + 1) (\(current.text)) is not greater than offset \(previousIndex + 1) (\(previous.text))"
+            }
+        }
+
+        if let finalOffset = offsets.last,
+           finalOffset.value > duration + 60 {
+            return "IMPLAUSIBLE: final offset \(finalOffset.text) exceeds workout duration \(duration) by more than 60 seconds"
+        }
+
+        return "INTACT"
+    }
+
+    private static func parseOffsets(from segments: String) -> [(value: Double, text: String)]? {
+        guard !segments.isEmpty else { return [] }
+
+        var offsets: [(value: Double, text: String)] = []
+        for entry in segments.split(separator: ";", omittingEmptySubsequences: false) {
+            let parts = entry.split(
+                separator: "@",
+                maxSplits: 1,
+                omittingEmptySubsequences: false
+            )
+            guard parts.count == 2,
+                  !parts[0].isEmpty,
+                  !parts[1].isEmpty,
+                  let value = Double(parts[1]),
+                  value.isFinite else {
+                return nil
+            }
+
+            offsets.append((value: value, text: String(parts[1])))
+        }
+        return offsets
+    }
+
+    private static func rawOffsetText(from entry: Substring) -> String {
+        let parts = entry.split(
+            separator: "@",
+            maxSplits: 1,
+            omittingEmptySubsequences: false
+        )
+        guard parts.count == 2, !parts[1].isEmpty else {
+            return "Not available"
+        }
+        return String(parts[1])
     }
 
     var hyroxIntegrityMarker: String? {

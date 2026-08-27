@@ -49,6 +49,19 @@ final class ProtocolMachine: ObservableObject {
         healthKitSegments(sessionStart: sessionStart).count
     }
 
+    func healthKitSegmentOffsetRange(
+        sessionStart: Date
+    ) -> (first: TimeInterval, last: TimeInterval)? {
+        guard let first = state.completedSegments.first,
+              let last = state.completedSegments.last else {
+            return nil
+        }
+        return (
+            first.startedAt.timeIntervalSince(sessionStart),
+            last.startedAt.timeIntervalSince(sessionStart)
+        )
+    }
+
     func healthKitMetadata(sessionStart: Date) -> [String: String] {
         guard !state.completedSegments.isEmpty else {
             AppLog.workout.info("\(AppLog.stamp(), privacy: .public) HYROX metadata omitted: no completed segments")
@@ -76,7 +89,10 @@ final class ProtocolMachine: ObservableObject {
     }
 
     // Experiment affordance: this creates seeded test data, not a real workout.
-    func seedFullRace() {
+    // The session start parameter is required because anchoring seeded data to a
+    // stale protocol start produced negative offsets; the session start is the
+    // only correct anchor for metadata offsets.
+    func seedFullRace(sessionStart: Date) {
         let stationNames = [
             "SkiErg",
             "Sled Push",
@@ -91,7 +107,7 @@ final class ProtocolMachine: ObservableObject {
         let roxzoneDurations: [TimeInterval] = [40, 42, 45, 43, 46, 44, 48, 47]
         let stationDurations: [TimeInterval] = [240, 270, 240, 270, 240, 240, 270, 210]
 
-        var startedAt = state.protocolStartedAt
+        var startedAt = sessionStart
         var segments: [WorkoutState.CompletedSegment] = []
 
         func appendSegment(
@@ -133,7 +149,7 @@ final class ProtocolMachine: ObservableObject {
 
         let seededState = WorkoutState(
             sessionID: state.sessionID,
-            protocolStartedAt: state.protocolStartedAt,
+            protocolStartedAt: sessionStart,
             healthKitSessionStartDate: state.healthKitSessionStartDate,
             healthKitSessionUUID: state.healthKitSessionUUID,
             kind: .completed,

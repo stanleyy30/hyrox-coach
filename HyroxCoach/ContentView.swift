@@ -112,6 +112,17 @@ private struct WorkoutDetailView: View {
                 Text(row.hyroxIntegrity)
                     .font(.headline)
                     .textSelection(.enabled)
+                if row.hyroxIntegrity.hasPrefix("IMPLAUSIBLE: ") {
+                    Text(
+                        "Plausibility failure: "
+                            + String(row.hyroxIntegrity.dropFirst("IMPLAUSIBLE: ".count))
+                    )
+                        .font(.headline)
+                        .textSelection(.enabled)
+                }
+                if let offsets = row.hyroxFirstAndLastOffsets {
+                    field("First and last offsets", offsets)
+                }
                 field(
                     "Received segment-string character count",
                     row.hyroxReceivedSegmentLength.map(String.init) ?? "Not available"
