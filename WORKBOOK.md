@@ -31,7 +31,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
-| L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | ▶ E4.0 ✔ full race crosses · 2 defects found · E4.2 next |
+| L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
@@ -1331,13 +1331,42 @@ Setup: list what the iOS app needs that metadata cannot carry, and check each ag
 4. **A decision not to build something is a legitimate result**, provided it is evidenced. Building `WCSession` transport to match the original plan would be the worse outcome.
 5. **Risk to watch for:** wanting to build the transport because it was planned, or because it is the more impressive thing to demonstrate. That is not a technical reason.
 
-**Actual result**
+**Actual result — nothing is left. Decision recorded: do not build the transport.**
 
-<!-- -->
+*2026-08-27. Written up as an architecture decision record at `design/L4-transport-decision.md` (95 lines, status Accepted).*
+
+**Decision:** do not build a watch-to-phone transport for this product; use HealthKit's own sync to carry the completed workout and its semantic metadata.
+
+**Capability the transport was planned to provide, against what measurement showed:**
+
+| Planned capability | Still needed? | Settled by |
+|---|---|---|
+| Move the completed workout to the phone | No — it already arrives | E3.0 |
+| Move station identity and boundaries | No — metadata carries them | E3.2, E4.0 |
+| Handle a full-length race payload | No — 25 segments, 601 characters, intact | E4.0 |
+| Reconcile the two records | No — offsets share one anchor and round-trip exactly | E2.3 |
+| Deliver while devices are apart | No — crossed with the phone locked and in another room | E3.0 |
+| Deliver live data mid-workout | **Not required by the product** — the iOS app does not display it | product scope |
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Almost nothing is left once E4.0 passes | **Confirmed** |
+| 2 | The only candidate is live mid-workout data, which iOS does not display | **Confirmed.** Metadata is attached once at `finishWorkout`, so it cannot carry live data — but nothing in the product needs it to. |
+| 3 | The honest answer is likely that WatchConnectivity is not needed at all, and the right output is a written justification for not building it | **Confirmed.** That justification is the ADR. |
+| 4 | A decision not to build is a legitimate result if evidenced | **Upheld.** Every claim in the ADR traces to a measurement in this workbook. |
+| 5 | Risk: wanting to build it because it was planned, or because it demonstrates better | **Recorded explicitly in the ADR**, as its own section, so a future reader can see the temptation was considered rather than avoided by accident. |
+
+**Reversal conditions are written down and checkable**, so this is a decision rather than a permanent conclusion. Among them: the iOS app gaining a live in-workout screen; any requirement that data reach the phone before the workout ends; a real payload arriving truncated; or a user with iCloud Health sync disabled. The ADR states plainly that the existence of WatchConnectivity is not itself a reason to use it.
+
+**Three risks accepted, all recorded:**
+
+1. HealthKit's metadata size limit was never reached, so it remains unknown. 601 characters passed comfortably; the ceiling is untested.
+2. The crossing depends on the user having iCloud Health sync enabled between watch and phone. **This was never tested with it off.**
+3. The 14-second figure is an upper bound on *time since the workout ended*, not a measured sync delay.
+
+**What this means for the cycle.** L4 was planned as the largest build in the project. It produced no transport code, and that is the correct outcome. The work it was meant to do had already been removed by measurement — first by E2.3, then by E3.2 and E4.0.
 
 ---
 
@@ -1422,7 +1451,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments, 601 chars, INTACT — a full race crosses complete. But every offset was negative and the check passed it anyway: completeness is not correctness. |
-| E4.1 | | |
-| E4.2 | | |
+| E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
+| E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
