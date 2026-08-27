@@ -31,7 +31,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
-| L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | ▶ rescoped 2026-08-26 · predictions written |
+| L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | ▶ E4.0 ✔ full race crosses · 2 defects found · E4.2 next |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
@@ -1234,13 +1234,65 @@ Setup: encode a realistic full HYROX protocol — 8 runs, 8 roxzones, 8 stations
 4. If it survives at 25 segments, no realistic HYROX workout will exceed it, and the free crossing carries the whole product.
 5. **Least confident:** whether the limit is on a single value, the whole dictionary, or the number of keys. Each would need a different workaround.
 
-**Actual result**
+**Actual result — INTACT at full length. And the verdict is wrong about something else.**
 
-<!-- -->
+*Run 2026-08-27, 10:24–10:25. Full race seeded, workout finished with metadata attached, read on the iPhone.*
+
+```
+HYROX Integrity: INTACT
+Received segment-string character count: 601
+
+HYROXSchemaVersion        1
+HYROXSegmentCount         25
+HYROXSegmentsLength       601
+HYROXProtocolStartOffset  -85543.894
+HYROXSegments             Preparing@-85543.894;Run 1@-85483.894;
+                          Roxzone 1@-85108.894;Station 1 — SkiErg@-85068.894;
+                          … Station 8 — Wall Balls@-80258.894
+```
+
+**On size, the prediction holds.** All 25 segments crossed. All eight stations arrived in the correct order — SkiErg, Sled Push, Sled Pull, Burpee Broad Jumps, Rowing, Farmers Carry, Sandbag Lunges, Wall Balls. 601 characters sent, 601 received. Nothing truncated.
+
+---
+
+### But every offset is negative, and the check said INTACT anyway
+
+Every segment reports a time **before the workout started** — `Preparing@-85543.894` is 23.76 hours earlier. That is impossible for real data.
+
+**Cause, confirmed by arithmetic.** `seedFullRace()` did not reset `protocolStartedAt`. It reused the value persisted from the previous session on 26 August at ~10:38, while the new workout session began on 27 August at 10:24:24. The gap between those two instants is **85,543 seconds** — matching the reported offset exactly. The seeded segments were anchored to a stale protocol start.
+
+**The integrity check reported INTACT on impossible data.** It compares the received length and segment count against what was declared, and both matched, so it passed. It never asks whether the values *make sense*.
+
+**This is the same failure this project keeps recording, and this time it is in the instrument I built specifically to catch it.** E4.0's own prediction 3 said "the metadata is present" is not evidence, and that only a character-for-character comparison counts. That was right as far as it went — and insufficient. A complete payload of nonsense passes a completeness check.
+
+**Completeness and correctness are different properties.** INTACT means nothing was lost in transit. It does not mean the data was right when it left.
+
+---
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | It will still cross, but this is where a limit would appear | **Confirmed on crossing, limit not reached.** 601 characters, 25 segments, all intact. |
+| 2 | If a limit exists it will truncate silently | **Not reached.** No truncation at 601 characters, so the failure mode is still untested. |
+| 3 | The test must compare, not merely observe | **Right, and not enough.** The comparison worked and correctly reported the length matched. It still passed data that was obviously wrong. |
+| 4 | If it survives at 25 segments, the free crossing carries the whole product | **Confirmed for size.** No realistic HYROX workout exceeds 25 segments. |
+| 5 | Least confident: whether the limit is on one value, the whole dictionary, or the key count | **Still unknown.** The ceiling was never found because 601 characters did not approach it. |
+
+**What is now established:** a full-length HYROX payload crosses to the phone complete, with no transport code. The size question is answered for any realistic race.
+
+**What is not:** where the actual limit sits. 601 characters passed comfortably; the ceiling could be far higher. E4.1 was written to run only if E4.0 failed — it did not fail, so finding the true limit is now optional rather than necessary.
+
+---
+
+### Two defects found
+
+| Defect | Effect |
+|---|---|
+| `seedFullRace()` does not reset `protocolStartedAt` | Seeded segments anchor to a stale protocol start from a previous session, producing negative offsets |
+| The integrity check tests completeness only | A payload can be complete and still be nonsense. INTACT was reported for segments dated before the workout began |
+
+The second is the more important one. A plausibility check — offsets must be non-negative and must increase — would have caught this immediately, and would catch a real ordering or anchoring bug in production.
 
 ---
 
@@ -1369,7 +1421,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
-| E4.0 | | |
+| E4.0 | 3 confirmed, 2 not reached | 25 segments, 601 chars, INTACT — a full race crosses complete. But every offset was negative and the check passed it anyway: completeness is not correctness. |
 | E4.1 | | |
 | E4.2 | | |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
