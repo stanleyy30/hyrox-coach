@@ -1374,6 +1374,80 @@ Setup: list what the iOS app needs that metadata cannot carry, and check each ag
 
 ---
 
+# CYCLE L4 · RESULTS SUMMARY
+
+**Status: COMPLETE.** Run 2026-08-27, ahead of its Aug 31 – Sep 1 slot.
+
+**Conditions** — Apple Watch Ultra 3 (watchOS 26.6), iPhone 16 Pro Max (iOS 26.6.1). Payload seeded as test data, attached at `finishWorkout`, read on the phone.
+
+---
+
+## The question, and the answer
+
+> Where does the free crossing break, and what genuinely still needs a transport of my own?
+
+**It did not break, and nothing is left to build.** A full-length race payload crosses complete. Every capability the planned transport was meant to provide has been removed by measurement.
+
+---
+
+## Results by experiment
+
+| Experiment | Question | Result |
+|---|---|---|
+| **E4.0** | Does metadata survive a full-length race? | **Yes.** 25 segments, 601 characters sent and received, all eight stations in order. No truncation. |
+| **E4.1** | If it breaks, where exactly? | **Not run.** It was written to run only on failure. E4.0 did not fail. |
+| **E4.2** | What still needs a transport of my own? | **Nothing.** Decision recorded: do not build it. |
+
+---
+
+## The decision
+
+**Do not build a watch-to-phone transport.** Use HealthKit's own sync to carry the completed workout and its semantic metadata. Recorded at `design/L4-transport-decision.md`, status Accepted, with reversal conditions and accepted risks.
+
+L4 was planned as the largest build in the project and produced **no transport code**. That is the correct outcome: the work had already been made unnecessary, first by E2.3, then by E3.2 and E4.0.
+
+---
+
+## Prediction tally
+
+| Experiment | Confirmed | Not reached | Notes |
+|---|---:|---:|---|
+| E4.0 (5) | 3 | 2 | The size limit was never approached, so the truncation failure mode is still untested |
+| E4.2 (5) | 5 | 0 | Including the prediction that the right output was a justification, not a build |
+
+---
+
+## The defect E4.0 exposed, which matters more than the size result
+
+Every offset in the payload was **negative** — each segment dated about 23.76 hours before the workout began. The cause was arithmetic-exact: `seedFullRace()` reused `protocolStartedAt` from the previous day's session while the workout had just started, and the 85,543-second gap between them matched the reported offset precisely.
+
+**The integrity check reported INTACT anyway.** It compared declared length and segment count, both matched, so it passed. It never asked whether the values were possible.
+
+**Completeness and correctness are different properties.** INTACT meant nothing was lost in transit. It said nothing about whether the data was right when it left. E4.0's own prediction had said "the metadata is present" is not evidence and only a character-for-character comparison counts — that was right, and insufficient. A complete payload of nonsense passes a completeness check.
+
+This is the ninth instance of the project's recurring pattern, and the closest to home: it was in the instrument built specifically to catch that pattern.
+
+---
+
+## Both defects fixed
+
+| Defect | Fix |
+|---|---|
+| `seedFullRace()` anchored to a stale protocol start | Now takes the running session's start and lays segments forward from it. Seeding with no session running is refused with an explanation rather than substituting `Date()`. |
+| The integrity check tested completeness only | Now tests plausibility after completeness: offsets must be non-negative, strictly increasing, within the workout's duration, and parseable. A complete-but-impossible payload reports **IMPLAUSIBLE** and names the offending value. |
+
+**Both fixes are built, installed and committed — but NOT yet re-verified on device.** E4.0 has not been re-run since. Until it is, "the fix works" is a claim about the code, not a measurement. Given what this cycle just demonstrated, that distinction should not be glossed over.
+
+---
+
+## Risks accepted, carried forward
+
+1. **HealthKit's metadata size limit is unknown.** 601 characters passed comfortably; the ceiling was never found.
+2. **The crossing was never tested with iCloud Health sync disabled.** The entire architecture depends on that setting being on.
+3. **The 14-second figure is an upper bound**, not a measured sync delay.
+
+---
+
 # CYCLE L5 · Honest representation — Days 9–10 (Sep 3–4)
 
 **Learning question:** What can this data honestly say, and what can it not?
