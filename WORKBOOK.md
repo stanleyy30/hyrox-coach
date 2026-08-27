@@ -1436,7 +1436,30 @@ This is the ninth instance of the project's recurring pattern, and the closest t
 | `seedFullRace()` anchored to a stale protocol start | Now takes the running session's start and lays segments forward from it. Seeding with no session running is refused with an explanation rather than substituting `Date()`. |
 | The integrity check tested completeness only | Now tests plausibility after completeness: offsets must be non-negative, strictly increasing, within the workout's duration, and parseable. A complete-but-impossible payload reports **IMPLAUSIBLE** and names the offending value. |
 
-**Both fixes are built, installed and committed — but NOT yet re-verified on device.** E4.0 has not been re-run since. Until it is, "the fix works" is a claim about the code, not a measurement. Given what this cycle just demonstrated, that distinction should not be glossed over.
+### Re-run 2026-08-27, 11:00 — both fixes verified on device
+
+Workout `08326EBA-6392-43DF-A226-6AE467F4A0C0`, 27 Aug 11:00:00 → 11:01:12, duration **72.4 s**.
+
+```
+HYROX Integrity: IMPLAUSIBLE: final offset 5285.000 exceeds workout
+                 duration 72.43331408500671 by more than 60 seconds
+First and last offsets: first 0.000; last 5285.000
+Received segment-string character count: 543
+HYROXSegmentCount 25   HYROXSegmentsLength 543
+HYROXProtocolStartOffset 0.000
+```
+
+**Fix 1 — the seed anchor — works.** Offsets now run from `0.000` to `5285.000`. Verified independently: 25 segments, all non-negative, strictly increasing, spanning 88.1 minutes. The previous run had every offset at roughly −85,543. That defect is gone.
+
+**Fix 2 — the plausibility check — works, and fired on a rule I had not expected it to.** It did not reject the offsets for being negative or out of order, because they no longer are. It rejected them because the last segment sits **5,285 seconds** into a workout that lasted **72.4 seconds**. Segments cannot extend 88 minutes past a 72-second workout.
+
+**That verdict is correct, and it is a property of the test rather than of the product.** `seedFullRace` writes a realistic 90-minute race, but the workout it is attached to lasts about a minute. The check is right to refuse it. In a real race the workout would last roughly as long as the segments describe and the rule would pass.
+
+**The size result still stands, and is now cleaner.** Completeness passed: 543 characters sent, 543 received, 25 segments, all eight stations in order. The earlier run measured 601 characters only because the negative offsets were longer strings. Both runs crossed complete.
+
+**What this re-run actually demonstrates.** A verdict of `INTACT` would have proved very little — a check that always says INTACT would produce it too. Instead the check **refused a payload**, named the failing rule, and quoted both numbers. That is evidence it can say no, which is the only thing that makes it saying yes worth anything.
+
+**Still to confirm:** the two supporting checks from the same re-run — that the pre-fix workout from 10:24 now reports IMPLAUSIBLE rather than INTACT, and that seeding without a running session is refused. Reported as run; not yet recorded here with their exact output.
 
 ---
 
@@ -1524,7 +1547,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
 | E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
-| E4.0 | 3 confirmed, 2 not reached | 25 segments, 601 chars, INTACT — a full race crosses complete. But every offset was negative and the check passed it anyway: completeness is not correctness. |
+| E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
