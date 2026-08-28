@@ -32,7 +32,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
-| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | — |
+| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | ▶ opened early 2026-08-27 · predictions written · E5.0 next |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
 
@@ -1475,10 +1475,83 @@ HYROXProtocolStartOffset 0.000
 
 **Learning question:** What can this data honestly say, and what can it not?
 
-Provisional:
-- E5.1 — Real training session captured on device.
-- E5.2 — For every number on the review screen, write the fact-vs-interpretation line.
-- E5.3 — Design token change propagates to both targets.
+**Opened 2026-08-27, ahead of schedule. Predictions written before any L5 code existed.**
+
+**What L5 has to close.** Four cycles have proved the pipeline works. None of them produced a real workout. Every session so far has been seeded test data or about one minute of sitting still, and the review screen on the phone is a diagnostic instrument, not something a person would read after training. Three things are still outstanding, and this is the last cycle to do them.
+
+---
+
+## E5.0 — A real training session
+
+*Nothing in this project has yet recorded actual exercise.*
+
+Setup: perform the shortened protocol — 2 runs and 2 stations — as **real physical effort**, advancing the state by hand at each boundary, with the metadata toggle on. Then read it on the phone.
+
+**My prediction**
+
+1. **The plausibility check will report INTACT for the first time on real data.** Every prior run failed it, or passed it wrongly. Here the segment offsets will genuinely fit inside the workout's duration, because the workout and the segments describe the same event.
+2. **Heart rate will be meaningfully elevated.** Every reading so far has been about 84 bpm from sitting at a desk. Real effort should produce something clearly different, which also confirms the live builder is collecting during movement rather than only when idle.
+3. **Tapping to advance while out of breath will be harder than the desk tests suggest.** I expect at least one mis-tap or hesitation, which is exactly what the undo history in the state machine design was written for and has never been exercised in anger.
+4. **Something will go wrong that no seeded test predicted.** Four cycles of desk testing have never involved sweat, movement, or a wrist in motion.
+5. **Lowest confidence:** whether the wrist-down and screen-off behaviour measured in L1 holds while actually moving, as opposed to lying still on a table.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E5.1 — Which numbers are recorded, and which are worked out?
+
+Setup: list every number the phone could show after a workout, and classify each one as **recorded**, **derived**, or **not supported**. Then build a review screen that makes the difference visible without explanation.
+
+**My prediction**
+
+1. **Recorded:** start time, end time, workout duration, active energy, heart-rate samples, and each segment's start offset. These come from HealthKit or from a timestamp written at the moment it happened.
+2. **Derived:** every station duration, every roxzone duration, total running time, total station time, and any pace figure. All of these are subtractions or sums that I perform.
+3. **Not supported at all:** why a station was slow, whether I am getting fitter, whether pacing was correct, and anything about injury or health. The data cannot reach these and the screen must not imply otherwise.
+4. **The line will be blurrier than it looks.** A station duration feels like a recorded fact, but it is the difference between two timestamps I chose to write when I tapped a button. It inherits every mis-tap. I expect the honest category for most of the interesting numbers to be *derived*, not *recorded*.
+5. A screen that shows derived numbers in the same style as recorded ones is making a claim it cannot support. **This is the same failure as L4's INTACT verdict**, moved from a test into a user interface.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+## E5.2 — One visual system across two screens
+
+*The Success Criteria card set four testable conditions for this. None has been attempted.*
+
+Setup: define colour, type scale, spacing and iconography once in a shared Swift package used by both targets, then verify by changing a single value.
+
+**My prediction**
+
+1. **Changing one token will visibly change both apps** with no other edit. If it does not, there are two systems that currently happen to match.
+2. **No hard-coded colour or font literal will remain** in either target's view code once the package exists.
+3. **The same role will need different values on each device.** A type scale that works on a phone will be too small on a 41mm watch face read mid-burpee, so the package must carry per-platform values rather than one set.
+4. **The watch is the harder constraint and should be designed first.** Anything legible on the watch will work on the phone; the reverse is not true.
+5. **Least confident:** whether a single shared package can express the platform differences cleanly, or whether it will need enough conditional code that it stops being one system in any meaningful sense.
+
+**Actual result**
+
+<!-- -->
+
+**The gap**
+
+<!-- -->
+
+---
+
+**Order of work:** E5.0 first. It produces the only real data in the project, and both E5.1 and E5.2 are about presenting real data honestly. Building a review screen from seeded numbers would repeat this project's most persistent mistake — testing the instrument instead of the thing.
 
 ---
 
@@ -1549,6 +1622,9 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
+| E5.0 | | |
+| E5.1 | | |
+| E5.2 | | |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
