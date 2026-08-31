@@ -60,6 +60,10 @@ struct ContentView: View {
                 .refreshable {
                     await workoutHistory.refresh()
                 }
+
+                Section("Design system") {
+                    StylePreview()
+                }
             }
             .padding(.top)
             .navigationTitle("Workout History")

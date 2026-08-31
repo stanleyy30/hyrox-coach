@@ -236,6 +236,12 @@ struct ContentView: View {
                 }
                 Text(machine.reconciliationReport)
             }
+
+            Section("Design system") {
+                NavigationLink("Style preview") {
+                    StylePreview()
+                }
+            }
         }
     }
 
