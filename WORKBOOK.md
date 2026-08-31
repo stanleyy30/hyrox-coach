@@ -1495,13 +1495,49 @@ Setup: perform the shortened protocol — 2 runs and 2 stations — as **real ph
 4. **Something will go wrong that no seeded test predicted.** Four cycles of desk testing have never involved sweat, movement, or a wrist in motion.
 5. **Lowest confidence:** whether the wrist-down and screen-off behaviour measured in L1 holds while actually moving, as opposed to lying still on a table.
 
-**Actual result**
+**Actual result — PARTIAL. The pipeline validated on live data; the training session did not happen.**
 
-<!-- -->
+*Run 2026-08-31, 09:29:48 → 09:30:31. Workout `F14B9E42-FF9C-43DE-BEA8-03C834C84C80`, duration 42 s.*
+
+```
+HYROX Integrity: INTACT
+First and last offsets: 9.688 → 23.750
+Segment string: 130 characters, 7 segments
+HKAverageMETs: 1.6 kcal/hr·kg
+Total active energy: 2.64 kcal
+```
+
+Segments: `Preparing@9.688; Run 1@13.572; Roxzone 1@15.636; Station 1 — SkiErg@17.719; Run 2@18.985; Roxzone 2@21.833; Station 2 — Sled Push@23.750`
+
+**The verdict is genuine and prediction 1 is confirmed.** This is the first `INTACT` on data that was tapped live rather than seeded. Offsets fit inside the workout's duration, run in order, and are non-negative. The whole chain — session, protocol, live advancing, metadata attach, crossing, integrity check — works end to end on real timestamps.
+
+**But no exercise took place, and the numbers say so plainly:**
+
+| Segment | Duration |
+|---|---|
+| Run 1 | **2.06 s** |
+| Roxzone 1 | 2.08 s |
+| Station 1 — SkiErg | **1.27 s** |
+| Run 2 | 2.85 s |
+| Roxzone 2 | 1.92 s |
+
+`HKAverageMETs 1.6` is the decisive figure. One MET is complete rest; walking is roughly 3; running 8–12. Combined with 2.64 kcal across 42 seconds and no heart-rate reading, the session was tapped through at a desk.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | The plausibility check reports INTACT for the first time on real data | **Confirmed.** First INTACT on live, non-seeded timestamps. |
+| 2 | Heart rate will be meaningfully elevated | **Not tested.** No heart rate present; METs 1.6 indicates rest. |
+| 3 | Tapping while out of breath will be harder than desk tests suggest | **Not tested.** Advancing was done at a desk. |
+| 4 | Something will go wrong that no seeded test predicted | **Not tested.** No sweat, no movement, no wrist in motion. |
+| 5 | Least confident: whether L1's wrist-down behaviour holds while actually moving | **Not tested.** |
+
+**What this establishes:** the pipeline handles live-entered data correctly, which is a real result and was not certain beforehand. Every prior INTACT was on seeded data or was wrong.
+
+**What it does not:** anything about the app under the conditions it is built for. Four cycles of desk testing have now been joined by a fifth. The remaining predictions can only be answered by physical effort, and they are the ones most likely to expose something the desk cannot.
+
+**Status: E5.0 is partially complete. The real session is still outstanding.**
 
 ---
 
@@ -1643,7 +1679,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
-| E5.0 | | |
+| E5.0 | 1 of 5 confirmed · PARTIAL | First INTACT on live data — the pipeline works end to end. But METs 1.6 and a 2.06s 'run' show no exercise took place, so the four predictions about real conditions remain untested. |
 | E5.1 | | |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
