@@ -1524,8 +1524,8 @@ Total active energy: 33.43 kcal
 |---|---|---|
 | 1 | The plausibility check reports INTACT for the first time on real data | **Confirmed.** Offsets non-negative, in order, and inside the workout's duration — now on a genuine 3m47s session. |
 | 2 | Heart rate will be meaningfully elevated | **Confirmed by proxy, not directly.** Energy expenditure rose 2.7× per minute, which cannot happen at rest. **Heart rate itself remains unverified** because the iOS detail view reports energy but does not enumerate HR samples — a known limitation recorded since E3.1. |
-| 3 | Tapping while out of breath will be harder than desk tests suggest | **Evidence present, cause unconfirmed.** Roxzone 2 recorded **2.03 s**, against 24.76 s for Roxzone 1 in the same session. A two-second transition between a run and a station is not physically plausible; the likely explanation is a double-tap or an immediate second advance while breathing hard. **Awaiting the learner's own account before this is called confirmed.** |
-| 4 | Something will go wrong that no seeded test predicted | **Confirmed, if Roxzone 2 is a mis-tap.** No desk test produced a segment inconsistent with its neighbours. |
+| 3 | Tapping while out of breath will be harder than desk tests suggest | **Confirmed.** Roxzone 2 recorded **2.03 s** against 24.76 s for Roxzone 1 in the same session. Cause confirmed by the learner: **Advance was tapped twice by accident.** The second tap ended the roxzone almost as soon as it began. |
+| 4 | Something will go wrong that no seeded test predicted | **Confirmed.** Five cycles of desk testing never produced a mis-tap. The first session involving real effort produced one within four minutes. |
 | 5 | Least confident: whether L1's wrist-down behaviour holds while moving | **Not tested.** The wrist was raised to advance at each boundary, so the app was never left alone during movement. |
 
 **The 2.03-second roxzone is the most interesting number in the session.** Every other segment is consistent with what was physically done. This one is not, and the integrity check passed it — because 2.03 s is non-negative, in order, and inside the workout. **It is plausible by the rules and wrong in fact.**
@@ -1534,7 +1534,17 @@ That is the same lesson as E4.0's INTACT verdict, arriving now from real exercis
 
 **This directly feeds E5.1.** A station or roxzone duration is not a recorded fact. It is the difference between two timestamps written when a human, mid-effort, managed to press a button. Every such number inherits that.
 
-**Status: E5.0 complete.** One item outstanding — the learner's account of what happened at Roxzone 2 and what was awkward during the session.
+### The undo history was designed for exactly this, and was not used
+
+L2's state machine design identified accidental advance as the hardest path to model, and specified a bounded undo history holding complete state snapshots so a mis-tap could be reversed **with its original timestamps** rather than replaced by a fresh one. That mechanism was built and persisted. E5.0 was its first real opportunity.
+
+**It was not reached for.** The mis-tap happened, the run continued, and the wrong duration was recorded and shipped to the phone.
+
+That is not a fault in the undo logic, which works. It is a finding about where the control lives: undo sits in the E2.2 diagnostic section, not in the workout flow, and nothing on the screen at the moment of the mistake offered to fix it. A correction mechanism that is not reachable at the moment of the error is not available in practice.
+
+**The consequence for the product:** correction has to be part of the live workout interface, not a separate screen. On a watch, mid-effort, out of breath, it must be one obvious action or it will not be used — as just demonstrated.
+
+**Status: E5.0 COMPLETE.** 3 of 5 predictions confirmed, 1 confirmed by proxy, 1 untested.
 
 ---
 
@@ -1676,7 +1686,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
-| E5.0 | 3 confirmed, 1 by proxy, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A 2.03s roxzone passed the check while being physically impossible — plausible by the rules, wrong in fact. |
+| E5.0 | 3 confirmed, 1 by proxy, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
 | E5.1 | | |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
