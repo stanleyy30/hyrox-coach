@@ -32,7 +32,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
-| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | ▶ opened early 2026-08-27 · predictions written · E5.0 next |
+| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | ▶ E5.2 ✔ tokens shared · E5.0 next (needs a real workout) · E5.1 waits on it |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
 
@@ -1541,13 +1541,34 @@ Setup: define colour, type scale, spacing and iconography once in a shared Swift
 4. **The watch is the harder constraint and should be designed first.** Anything legible on the watch will work on the phone; the reverse is not true.
 5. **Least confident:** whether a single shared package can express the platform differences cleanly, or whether it will need enough conditional code that it stops being one system in any meaningful sense.
 
-**Actual result**
+**Actual result — one token changed, both apps changed**
 
-<!-- -->
+*2026-08-31. Tokens defined in `Shared/DesignTokens.swift`, compiled into both targets.*
+
+**The test.** The accent colour was changed from blue to the signal orange of the app icon:
+
+```
+light: (0.00, 0.42, 0.64)  ->  (0.83, 0.33, 0.12)
+dark:  (0.18, 0.78, 0.96)  ->  (0.96, 0.50, 0.31)
+```
+
+**One file touched. 5 insertions, 2 deletions — and 3 of the insertions were the comment recording the change.** Rebuilt, installed, and the accent turned orange on **both** the watch and the phone. No other edit anywhere.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Changing one token will visibly change both apps with no other edit | **Confirmed.** One value, one file, both apps. |
+| 2 | No hard-coded colour or font literal will remain in either target's view code | **Partially.** `StylePreview` contains zero literals. The experiment screens contain none either, but only because they use plain system defaults — they do not consume the tokens at all. **The claim is not yet fully tested, because no product screen exists to test it on.** |
+| 3 | The same role will need different values on each device | **Confirmed.** Watch `body` 18pt against phone 17pt, `caption` 15pt against 13pt. The watch carries proportionally larger text because it is read at arm's length while moving. |
+| 4 | The watch is the harder constraint and should be designed first | **Upheld**, and evidenced by prediction 3: the watch drove the sizes and the phone accepted them. |
+| 5 | Least confident: whether one package can express platform differences cleanly, or need so much conditional code it stops being one system | **Wrong, in the useful direction.** It took a **single** `#if os(watchOS)` block inside the token definitions. Callers never branch. It is still recognisably one system. |
+
+**What is proven:** the tokens are genuinely shared. A single edit reaches both platforms, and the per-platform sizing is resolved inside the definitions rather than at the call site.
+
+**What is not:** that the *product* uses them. The proof surface is `StylePreview`, which exists to demonstrate the tokens. The diagnostic screens were deliberately left alone — they are the harness E5.0 still needs, and restyling them to make a preview look better would have risked the last real experiment in the project.
+
+**So the honest status is: the mechanism works, the application of it has not started.** The review screen in E5.1 is the first product surface that should consume these tokens, and it is waiting on real data from E5.0.
 
 ---
 
@@ -1624,7 +1645,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
 | E5.0 | | |
 | E5.1 | | |
-| E5.2 | | |
+| E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
 | E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |

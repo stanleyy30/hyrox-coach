@@ -36,9 +36,12 @@ enum DesignTokens {
     }
 
     static func accent(for colourScheme: ColorScheme) -> Color {
+        // E5.2 token-propagation test 2026-08-31: changed from blue
+        // (0.00, 0.42, 0.64) / (0.18, 0.78, 0.96) to the signal orange of
+        // the app icon. One edit here, in one file, is the whole change.
         colour(
-            light: (0.00, 0.42, 0.64),
-            dark: (0.18, 0.78, 0.96),
+            light: (0.83, 0.33, 0.12),
+            dark: (0.96, 0.50, 0.31),
             colourScheme: colourScheme
         )
     }
