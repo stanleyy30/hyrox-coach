@@ -1495,49 +1495,46 @@ Setup: perform the shortened protocol — 2 runs and 2 stations — as **real ph
 4. **Something will go wrong that no seeded test predicted.** Four cycles of desk testing have never involved sweat, movement, or a wrist in motion.
 5. **Lowest confidence:** whether the wrist-down and screen-off behaviour measured in L1 holds while actually moving, as opposed to lying still on a table.
 
-**Actual result — PARTIAL. The pipeline validated on live data; the training session did not happen.**
+**Actual result — REAL SESSION COMPLETED.**
 
-*Run 2026-08-31, 09:29:48 → 09:30:31. Workout `F14B9E42-FF9C-43DE-BEA8-03C834C84C80`, duration 42 s.*
+*Run 2026-08-31, 11:17:14 → 11:21:01. Workout `C1F8E587-6013-4AA0-92DF-785AC67A53BD`, duration **3 m 47 s**. Stations substituted: SkiErg → burpees, Sled Push → walking lunges.*
 
 ```
 HYROX Integrity: INTACT
-First and last offsets: 9.688 → 23.750
-Segment string: 130 characters, 7 segments
-HKAverageMETs: 1.6 kcal/hr·kg
-Total active energy: 2.64 kcal
+First and last offsets: 5.262 → 172.688
+Segment string: 134 characters, 7 segments
+Total active energy: 33.43 kcal
 ```
-
-Segments: `Preparing@9.688; Run 1@13.572; Roxzone 1@15.636; Station 1 — SkiErg@17.719; Run 2@18.985; Roxzone 2@21.833; Station 2 — Sled Push@23.750`
-
-**The verdict is genuine and prediction 1 is confirmed.** This is the first `INTACT` on data that was tapped live rather than seeded. Offsets fit inside the workout's duration, run in order, and are non-negative. The whole chain — session, protocol, live advancing, metadata attach, crossing, integrity check — works end to end on real timestamps.
-
-**But no exercise took place, and the numbers say so plainly:**
 
 | Segment | Duration |
 |---|---|
-| Run 1 | **2.06 s** |
-| Roxzone 1 | 2.08 s |
-| Station 1 — SkiErg | **1.27 s** |
-| Run 2 | 2.85 s |
-| Roxzone 2 | 1.92 s |
+| Preparing | 17.47 s |
+| **Run 1** | **58.42 s** |
+| Roxzone 1 | 24.76 s |
+| **Station 1 — burpees** | **32.44 s** |
+| **Run 2** | **32.30 s** |
+| Roxzone 2 | **2.03 s** ← unexplained |
+| **Station 2 — walking lunges** | **54.31 s** |
 
-`HKAverageMETs 1.6` is the decisive figure. One MET is complete rest; walking is roughly 3; running 8–12. Combined with 2.64 kcal across 42 seconds and no heart-rate reading, the session was tapped through at a desk.
+**Effort is unambiguous.** 33.43 kcal across 227 s is **8.8 kcal/min**, against **3.3 kcal/min** for the desk run that preceded it — roughly 2.7× the intensity, and 17× the total energy. These are exercise durations: runs measured in tens of seconds, stations in half-minutes.
 
 **The gap**
 
 | # | Prediction | Outcome |
 |---|---|---|
-| 1 | The plausibility check reports INTACT for the first time on real data | **Confirmed.** First INTACT on live, non-seeded timestamps. |
-| 2 | Heart rate will be meaningfully elevated | **Not tested.** No heart rate present; METs 1.6 indicates rest. |
-| 3 | Tapping while out of breath will be harder than desk tests suggest | **Not tested.** Advancing was done at a desk. |
-| 4 | Something will go wrong that no seeded test predicted | **Not tested.** No sweat, no movement, no wrist in motion. |
-| 5 | Least confident: whether L1's wrist-down behaviour holds while actually moving | **Not tested.** |
+| 1 | The plausibility check reports INTACT for the first time on real data | **Confirmed.** Offsets non-negative, in order, and inside the workout's duration — now on a genuine 3m47s session. |
+| 2 | Heart rate will be meaningfully elevated | **Confirmed by proxy, not directly.** Energy expenditure rose 2.7× per minute, which cannot happen at rest. **Heart rate itself remains unverified** because the iOS detail view reports energy but does not enumerate HR samples — a known limitation recorded since E3.1. |
+| 3 | Tapping while out of breath will be harder than desk tests suggest | **Evidence present, cause unconfirmed.** Roxzone 2 recorded **2.03 s**, against 24.76 s for Roxzone 1 in the same session. A two-second transition between a run and a station is not physically plausible; the likely explanation is a double-tap or an immediate second advance while breathing hard. **Awaiting the learner's own account before this is called confirmed.** |
+| 4 | Something will go wrong that no seeded test predicted | **Confirmed, if Roxzone 2 is a mis-tap.** No desk test produced a segment inconsistent with its neighbours. |
+| 5 | Least confident: whether L1's wrist-down behaviour holds while moving | **Not tested.** The wrist was raised to advance at each boundary, so the app was never left alone during movement. |
 
-**What this establishes:** the pipeline handles live-entered data correctly, which is a real result and was not certain beforehand. Every prior INTACT was on seeded data or was wrong.
+**The 2.03-second roxzone is the most interesting number in the session.** Every other segment is consistent with what was physically done. This one is not, and the integrity check passed it — because 2.03 s is non-negative, in order, and inside the workout. **It is plausible by the rules and wrong in fact.**
 
-**What it does not:** anything about the app under the conditions it is built for. Four cycles of desk testing have now been joined by a fifth. The remaining predictions can only be answered by physical effort, and they are the ones most likely to expose something the desk cannot.
+That is the same lesson as E4.0's INTACT verdict, arriving now from real exercise rather than seeded data: a check can only test the properties it was given, and "is this number possible" is not the same question as "is this number true". A mis-tap produces a perfectly well-formed lie.
 
-**Status: E5.0 is partially complete. The real session is still outstanding.**
+**This directly feeds E5.1.** A station or roxzone duration is not a recorded fact. It is the difference between two timestamps written when a human, mid-effort, managed to press a button. Every such number inherits that.
+
+**Status: E5.0 complete.** One item outstanding — the learner's account of what happened at Roxzone 2 and what was awkward during the session.
 
 ---
 
@@ -1679,7 +1676,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
-| E5.0 | 1 of 5 confirmed · PARTIAL | First INTACT on live data — the pipeline works end to end. But METs 1.6 and a 2.06s 'run' show no exercise took place, so the four predictions about real conditions remain untested. |
+| E5.0 | 3 confirmed, 1 by proxy, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A 2.03s roxzone passed the check while being physically impossible — plausible by the rules, wrong in fact. |
 | E5.1 | | |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
