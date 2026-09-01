@@ -1703,6 +1703,91 @@ dark:  (0.18, 0.78, 0.96)  ->  (0.96, 0.50, 0.31)
 
 ---
 
+# CYCLE L5 · RESULTS SUMMARY
+
+**Status: COMPLETE.** Run 2026-08-31 and 2026-09-01, ahead of its Sep 3–4 slot. The final cycle of the Act phase.
+
+**Conditions** — Apple Watch Ultra 3 (watchOS 26.6), iPhone 16 Pro Max (iOS 26.6.1). One session was real physical exercise; the rest were tap-throughs, and each is labelled as such.
+
+---
+
+## The question, and the answer
+
+> What can this data honestly say, and what can it not?
+
+**Less than it looks, and the reason is not where I expected.** The obvious split is between numbers that were recorded and numbers that were calculated. That split is wrong. The real division sits *inside* "recorded": a workout's duration and a station's start time are both timestamps, but one came from a sensor and the other from a person pressing a button while out of breath.
+
+---
+
+## Results by experiment
+
+| Experiment | Question | Result |
+|---|---|---|
+| **E5.0** | A real training session | **3 m 47 s at 8.8 kcal/min.** First INTACT on genuine exercise. A double-tap produced a 2.03 s roxzone that passed every check. |
+| **E5.1** | Which numbers are recorded, which are worked out? | **Four categories, not two.** Classification written; review screen built as the first product surface. One sub-question open. |
+| **E5.2** | One visual system across two screens | **One token edit changed both apps.** Per-platform sizing took a single conditional block. |
+
+---
+
+## The four categories
+
+| Category | Meaning | How it fails |
+|---|---|---|
+| **MEASURED** | The device recorded it unaided — start, end, duration, energy, heart rate | Sensor error, or a unit mistake. Apple's own metadata reported humidity of **4900 %** |
+| **MARKED** | A human pressed a button and a timestamp was written — every segment offset | A late, early or accidental press. Nothing in the data reveals it |
+| **DERIVED** | Calculated from the above — every segment duration, every total | Inherits every weakness of its inputs, twice over when both are MARKED |
+| **UNSUPPORTED** | The data cannot answer it | Never appears on screen. Naming it is how it is kept out |
+
+---
+
+## The two numbers that carry the cycle
+
+**2.03 seconds.** The second roxzone of the real session, caused by tapping Advance twice by accident. Physically impossible — the first roxzone in the same session took 24.76 s. The integrity check passed it, because 2.03 is non-negative, in order, and inside the workout's duration. **Plausible by every rule and false in fact.**
+
+**4900 %.** The humidity Apple recorded on a different workout. A MEASURED value — the most trustworthy category — produced with no human involvement, and impossible on its face.
+
+Together they close the argument from both ends. A number can be complete, well-formed, correctly transported, verified by a checker, and wrong. The failure arrives from human timing at one end and from unit handling at the other, and no amount of interface honesty repairs either.
+
+---
+
+## Prediction tally
+
+| Experiment | Confirmed | By proxy | Open / untested |
+|---|---:|---:|---|
+| E5.0 (5) | 3 | 1 | 1 — wrist-down while moving |
+| E5.1 (5) | 4 | 0 | 1 — whether the distinction reads at a glance |
+| E5.2 (5) | 3 | 0 | 1 partial, **1 wrong favourably** |
+
+E5.2's wrong prediction was pessimism again: I expected platform differences to need so much conditional code that the token system would stop being one system. It took a single `#if os(watchOS)` block, and callers never branch.
+
+---
+
+## What L5 built
+
+- `design/L5-data-honesty.md` — the classification, with the 2.03-second roxzone as the worked example
+- `Shared/DesignTokens.swift` — colour, type, spacing and icons defined once, per-platform values resolved inside the definitions
+- `HyroxCoach/WorkoutReview.swift` — the first product screen in the project. **71 token references, zero literal colours, sizes or padding values.** Segment durations render to whole seconds because their inputs are button presses. A permanent, non-dismissible section states what the app cannot tell you.
+
+---
+
+## The unplanned finding, and it is the most serious in the project
+
+On 2026-09-01, **every workout written by this app was found to be deleted from HealthKit**, confirmed absent in Apple's own Health app. Workouts from other sources on the same device were untouched. The cause was not determined and is recorded as unexplained; the likely explanation is that iOS removes an app's HealthKit samples when the app is deleted, and this project reinstalled repeatedly.
+
+**Why it matters beyond the lost test data.** L4 decided against building a transport because HealthKit already carries the record. That decision is sound on its evidence — but it assumed the record *persists*. If an app's samples die with the app, an athlete's entire history depends on never deleting it. That is a durability problem, not a transport problem, and it would need its own design. Added to the L4 decision record as a fourth risk and a reversal condition.
+
+**Why nothing already logged was lost.** Every result in this workbook carries its actual numbers rather than a reference to data held elsewhere. Four cycles of evidence survived an event that deleted the data they were measured from.
+
+---
+
+## The pattern, complete
+
+L1 recorded six instances of a success signal concealing a failure. L2 added four, inside the instruments built to catch them. L4 added one more, in the integrity check itself. L5 adds the tenth: **"Query succeeded: 20 workout(s) found"**, displayed over a list with every one of this app's workouts missing.
+
+A successful query says the question was answered. It does not say the answer is complete.
+
+---
+
 # CYCLE L6 · Wrapper — REMOVED
 
 Dropped in the 2026-08-24 re-baseline. The Gantt carries five cycles. Presentation prep, evidence assembly and rehearsal now sit inside L5 or after Act closes on 4 September, rather than taking a numbered Act day.
