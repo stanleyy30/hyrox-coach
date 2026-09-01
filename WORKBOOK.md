@@ -1523,7 +1523,7 @@ Total active energy: 33.43 kcal
 | # | Prediction | Outcome |
 |---|---|---|
 | 1 | The plausibility check reports INTACT for the first time on real data | **Confirmed.** Offsets non-negative, in order, and inside the workout's duration — now on a genuine 3m47s session. |
-| 2 | Heart rate will be meaningfully elevated | **Confirmed by proxy, not directly.** Energy expenditure rose 2.7× per minute, which cannot happen at rest. **Heart rate itself remains unverified** because the iOS detail view reports energy but does not enumerate HR samples — a known limitation recorded since E3.1. |
+| 2 | Heart rate will be meaningfully elevated | **Confirmed directly, 2026-09-01.** A second real session recorded **51 heart-rate samples, 72–140 bpm, average 111.9**. Every desk test read about 84 bpm. The maximum is 67% above resting. The instrument was added specifically to close this by measurement rather than by inference from energy. |
 | 3 | Tapping while out of breath will be harder than desk tests suggest | **Confirmed.** Roxzone 2 recorded **2.03 s** against 24.76 s for Roxzone 1 in the same session. Cause confirmed by the learner: **Advance was tapped twice by accident.** The second tap ended the roxzone almost as soon as it began. |
 | 4 | Something will go wrong that no seeded test predicted | **Confirmed.** Five cycles of desk testing never produced a mis-tap. The first session involving real effort produced one within four minutes. |
 | 5 | Least confident: whether L1's wrist-down behaviour holds while moving | **Not tested.** The wrist was raised to advance at each boundary, so the app was never left alone during movement. |
@@ -1655,6 +1655,44 @@ The rule that was already written down and not applied: *a tool's output is evid
 The risk entry in `design/L4-transport-decision.md` has been corrected to say so: an open question to be tested deliberately, not an observed failure.
 
 **Also unchanged and worth keeping:** the instrument reported *"Query succeeded: 20 workout(s) found"* while returning none of this app's workouts. That remains true and remains the tenth instance of the pattern. A successful query says the question was answered, not that the answer is complete. It is the reason the wrong conclusion was available to reach.
+
+---
+
+### Second real session, 2026-09-01 — the Review screen rendered in full
+
+Workout `FB4A260E-3749-4661-926D-F970A20C24FB`, 10:51:17 → 10:56:29, **5 m 11 s**, 44.97 kcal — **8.7 kcal/min**, matching the 8.8 of the first real session. Heart rate **51 samples, 72–140 bpm, average 111.9**.
+
+| Segment | Duration |
+|---|---|
+| Preparing | 35.1 s |
+| Run 1 | 47.3 s |
+| Roxzone 1 | 34.3 s |
+| Station 1 | 35.9 s |
+| Run 2 | 89.8 s |
+| Roxzone 2 | 25.3 s |
+| Station 2 | 36.6 s |
+
+**The screen distinguishes three categories visually, not only by label:**
+
+- **MEASURED** — solid accent-coloured pill, on date, total duration and active energy
+- **MARKED** — muted grey pill, on every segment's start offset
+- **DERIVED** — amber pill with the line *"FROM TWO MARKED TIMES"* beneath, on every duration and total
+
+**One case the implementation got right without being told to.** Station 2's duration reads *"FROM MARKED + MEASURED"* rather than *"FROM TWO MARKED TIMES"*. Its start is a button press; its end is the end of the workout, which HealthKit measured. The screen therefore reports that this one duration is **less wrong** than the others — it inherits one human timestamp instead of two. That distinction was not specified. It follows from taking the categories seriously.
+
+---
+
+### Finding not predicted by anyone — the station names are neither MEASURED nor MARKED
+
+The learner substituted **burpees** for the SkiErg and **sandbag lunges** for the sled push. The screen displays **"Station 1 — SkiErg"** and **"Station 2 — Sled Push"**.
+
+Those names were never recorded or marked. They come from a **hard-coded protocol constant** — the app assumes station one is a SkiErg because HYROX says so. The name is displayed with exactly the same authority as a measured duration, and it is **wrong**.
+
+**This is a fifth category the classification missed: ASSUMED.** A value the app supplies from configuration rather than from the world. It fails differently from the other four — it is not imprecise, not stale, not derived from weak inputs. It is simply **stated**, and nothing in the data can contradict it.
+
+It is also the most confidently wrong thing on the screen. A duration derived from two button presses at least carries a marker admitting its provenance. `SkiErg` carries no marker at all, because the app never doubted it.
+
+**Consequence:** either the interface must let the athlete record what they actually did, or every station name needs an ASSUMED marker saying the app is naming this from the protocol rather than from observation. Recorded as a design requirement, not fixed — the Act phase is over.
 
 ---
 
@@ -1863,8 +1901,8 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
-| E5.0 | 3 confirmed, 1 by proxy, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
-| E5.1 | 4 confirmed, 1 open | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
+| E5.0 | 4 confirmed, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
+| E5.1 | 4 confirmed, 1 open · plus an unpredicted fifth category | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
