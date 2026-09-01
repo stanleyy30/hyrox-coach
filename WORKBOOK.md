@@ -1526,7 +1526,7 @@ Total active energy: 33.43 kcal
 | 2 | Heart rate will be meaningfully elevated | **Confirmed directly, 2026-09-01.** A second real session recorded **51 heart-rate samples, 72–140 bpm, average 111.9**. Every desk test read about 84 bpm. The maximum is 67% above resting. The instrument was added specifically to close this by measurement rather than by inference from energy. |
 | 3 | Tapping while out of breath will be harder than desk tests suggest | **Confirmed.** Roxzone 2 recorded **2.03 s** against 24.76 s for Roxzone 1 in the same session. Cause confirmed by the learner: **Advance was tapped twice by accident.** The second tap ended the roxzone almost as soon as it began. |
 | 4 | Something will go wrong that no seeded test predicted | **Confirmed.** Five cycles of desk testing never produced a mis-tap. The first session involving real effort produced one within four minutes. |
-| 5 | Least confident: whether L1's wrist-down behaviour holds while moving | **Not tested.** The wrist was raised to advance at each boundary, so the app was never left alone during movement. |
+| 5 | Least confident: whether L1's wrist-down behaviour holds while moving | **Confirmed, 2026-09-01.** During the second real session the arm was kept down for the whole of Run 2 — **89.8 s**, the longest segment recorded — with no interaction. The segment recorded correctly and the session continued. L1 measured this on a desk with the watch lying still; it holds while running. |
 
 **The 2.03-second roxzone is the most interesting number in the session.** Every other segment is consistent with what was physically done. This one is not, and the integrity check passed it — because 2.03 s is non-negative, in order, and inside the workout. **It is plausible by the rules and wrong in fact.**
 
@@ -1544,7 +1544,7 @@ That is not a fault in the undo logic, which works. It is a finding about where 
 
 **The consequence for the product:** correction has to be part of the live workout interface, not a separate screen. On a watch, mid-effort, out of breath, it must be one obvious action or it will not be used — as just demonstrated.
 
-**Status: E5.0 COMPLETE.** 3 of 5 predictions confirmed, 1 confirmed by proxy, 1 untested.
+**Status: E5.0 COMPLETE — 5 of 5 predictions confirmed**, across two real sessions on 31 August and 1 September. The second closed heart rate by direct measurement and wrist-down behaviour while moving.
 
 ---
 
@@ -1901,7 +1901,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
-| E5.0 | 4 confirmed, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
+| E5.0 | **5 of 5 confirmed** | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
 | E5.1 | 4 confirmed, 1 open · plus an unpredicted fifth category | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
