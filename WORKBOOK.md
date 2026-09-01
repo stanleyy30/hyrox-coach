@@ -1309,13 +1309,24 @@ Setup: increase the payload until it breaks, then narrow down the boundary. Reco
 3. A workaround exists: split the segment string across several numbered keys, since the total is what matters, not any single value.
 4. If instead the whole workout fails to save, that is far more serious — an annotation would be destroying the record it describes, and metadata would have to become optional and verified.
 
-**Actual result**
+**Actual result — NOT RUN, by design.**
 
-<!-- -->
+E4.1 was written with an explicit condition: *"Run only if E4.0 fails."* E4.0 did not fail. A full-length payload of 25 segments and 601 characters crossed complete, and no truncation limit was reached.
 
 **The gap**
 
-<!-- -->
+Its four predictions are therefore untested, and remain so deliberately rather than by omission:
+
+| # | Prediction | Status |
+|---|---|---|
+| 1 | Failure will be silent — the workout saves, the metadata is short | **Untested** — no failure occurred |
+| 2 | The limit will be on total dictionary size, not key count | **Untested** |
+| 3 | A workaround exists: split the segment string across numbered keys | **Untested** |
+| 4 | If the whole workout fails to save instead, that is far more serious | **Untested** |
+
+**Why this is recorded rather than deleted.** The experiment was designed as a contingency and the contingency did not arise. Removing it would hide the fact that the failure mode was anticipated and prepared for, which is part of the evidence of how the cycle was planned.
+
+**What remains unknown as a result:** where HealthKit's metadata ceiling actually sits. 601 characters passed comfortably; the limit was never approached. This is carried in the L4 decision record as an accepted risk.
 
 ---
 
