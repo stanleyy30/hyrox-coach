@@ -93,3 +93,15 @@ The temptation was to build the transport because it was in the plan and because
 The original plan was justified by uncertainty. E3.0, E3.2, E4.0 and E2.3 removed that uncertainty for the current requirements. Continuing as though those results had not happened would turn the plan into an obligation rather than a hypothesis.
 
 A decision not to build something is a legitimate engineering result when it is evidenced. This decision is reversible if a checkable product need or a failed measurement supplies a reason to reverse it.
+
+---
+
+## Risk added 2026-09-01 — the record may not persist
+
+Every workout written by this app was found to be absent from HealthKit, confirmed in Apple's own Health app. Workouts written by other sources on the same device were unaffected. The cause was not determined, but the most likely explanation is that iOS removes an app's HealthKit samples when the app is deleted, and this project reinstalled the apps repeatedly during development.
+
+**Why this matters more than the risks already listed.** The decision not to build a transport rests on HealthKit carrying the record. That assumed the record persists. If an app's samples are removed with the app, an athlete's entire history depends on never deleting it, and a reinstall would destroy every session.
+
+**This is also a reversal condition.** If it is confirmed that app deletion removes the workouts, the product needs its own durable store — not to move the data, which HealthKit does well, but to survive the app being removed and reinstalled. That is a different problem from transport and would need its own design.
+
+**Status: unconfirmed.** It should be tested deliberately: record a workout, delete the app, reinstall it, and check whether the workout is still in Health.

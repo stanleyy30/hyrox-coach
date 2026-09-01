@@ -1610,6 +1610,32 @@ That extends the cycle's argument further than intended. MEASURED was defined as
 
 **Outstanding:** the review screen has not yet been opened on a **HyroxCoach workout with segments**. Until it is, three things are unverified: that DERIVED values render, that the **FROM MARKED TIMES** marker appears, and that MEASURED is distinguishable from DERIVED at a glance. That last one is the actual prediction, and it cannot be judged from a workout with nothing derived on screen.
 
+### Unplanned finding, 2026-09-01 — every HyroxCoach workout has been deleted from HealthKit
+
+While attempting the outstanding E5.1 check, the workout list jumped from **31 Aug 12:57** straight to **28 Aug**. Every workout written by HyroxCoach was absent — 11:17, 10:50, 09:29 on 31 August, and everything from 26 and 27 August. Workouts written by other sources (Apple's Workout app, Liftoff, the Watch's own Running app) were untouched.
+
+**This is not a query limit.** A row cap truncates the oldest entries; it cannot remove entries from the middle of a descending sort.
+
+**Confirmed in Apple's Health app: they are not there either.** The data is gone from HealthKit, not merely missing from this app's query.
+
+**Cause not determined.** The most likely explanation is that iOS removes the HealthKit samples an app wrote when that app is deleted, and this project has uninstalled and reinstalled the apps repeatedly. That is consistent with the pattern — only HyroxCoach-written workouts vanished — but it has not been proven, and it cannot be established retroactively. Recorded as unexplained rather than assumed.
+
+**What the instrument said while this was true:** *"Query succeeded: 20 workout(s) found."* A green result sitting on top of missing data. This is the tenth instance of the pattern in this project, and it occurred inside the tool built to report honestly about exactly that. A successful query says the question was answered, not that the answer is complete.
+
+**Why nothing already logged is invalidated.** Every result in this workbook was recorded with its actual numbers at the time — segment offsets, character counts, durations, verdicts — rather than as a reference to data held elsewhere. The measurements survive because they were written down. Had the workbook recorded "see the workout from 11:17", four cycles of evidence would have been lost with it.
+
+---
+
+### The consequence for the product, which is serious
+
+The architecture decided in L4 rests on HealthKit carrying the record from watch to phone, with no transport of the project's own. That decision is sound on the evidence gathered.
+
+**But it assumed the record persists.** If an app's HealthKit samples are removed when the app is deleted, then the athlete's entire training history depends on never deleting the app — and reinstalling it, for any reason, would destroy every session. The ADR's accepted risks named the metadata size ceiling and the dependency on iCloud Health sync. **It did not name this one, and this one is larger.**
+
+Added to `design/L4-transport-decision.md` as a fourth accepted risk and as a reversal condition.
+
+---
+
 **Status: E5.1 partially complete.**
 
 ---
