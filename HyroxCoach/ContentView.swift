@@ -113,6 +113,9 @@ private struct WorkoutDetailView: View {
                 field("Source", row.sourceName)
                 field("Device", row.deviceName)
                 field("Total active energy", activeEnergyText)
+                NavigationLink("Review") {
+                    WorkoutReview(row: row)
+                }
             }
 
             Section("HYROX Integrity") {
