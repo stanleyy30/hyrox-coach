@@ -96,9 +96,11 @@ A decision not to build something is a legitimate engineering result when it is 
 
 ---
 
-## Risk added 2026-09-01 — the record may not persist
+## Open question added 2026-09-01 — does the record persist?
 
-Every workout written by this app was found to be absent from HealthKit, confirmed in Apple's own Health app. Workouts written by other sources on the same device were unaffected. The cause was not determined, but the most likely explanation is that iOS removes an app's HealthKit samples when the app is deleted, and this project reinstalled the apps repeatedly during development.
+**Corrected the same day.** Every workout written by this app briefly appeared absent from HealthKit, and deletion was concluded. That was wrong: the workouts returned later the same day with identical data, so they had not been deleted, only temporarily not returned. The original entry is kept in the workbook with the retraction.
+
+What remains is a genuine open question that this episode did not answer.
 
 **Why this matters more than the risks already listed.** The decision not to build a transport rests on HealthKit carrying the record. That assumed the record persists. If an app's samples are removed with the app, an athlete's entire history depends on never deleting it, and a reinstall would destroy every session.
 

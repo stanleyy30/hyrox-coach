@@ -1624,15 +1624,23 @@ The first two close the mechanical questions: the DERIVED path renders, and the 
 
 **Note on the workout used.** This was a tap-through, not real exercise. That is appropriate here: E5.1 asks whether the screen distinguishes categories, which does not depend on the effort behind the numbers. E5.0 already supplied the real session, and its 2.03-second roxzone remains the worked example in `design/L5-data-honesty.md`.
 
-### Unplanned finding, 2026-09-01 — every HyroxCoach workout has been deleted from HealthKit
+### Unplanned finding, 2026-09-01 — RETRACTED. The workouts were not deleted.
 
 While attempting the outstanding E5.1 check, the workout list jumped from **31 Aug 12:57** straight to **28 Aug**. Every workout written by HyroxCoach was absent — 11:17, 10:50, 09:29 on 31 August, and everything from 26 and 27 August. Workouts written by other sources (Apple's Workout app, Liftoff, the Watch's own Running app) were untouched.
 
 **This is not a query limit.** A row cap truncates the oldest entries; it cannot remove entries from the middle of a descending sort.
 
-**Confirmed in Apple's Health app: they are not there either.** The data is gone from HealthKit, not merely missing from this app's query.
+Apple's Health app was checked at the time and also appeared not to show them.
 
-**Cause not determined.** The most likely explanation is that iOS removes the HealthKit samples an app wrote when that app is deleted, and this project has uninstalled and reinstalled the apps repeatedly. That is consistent with the pattern — only HyroxCoach-written workouts vanished — but it has not been proven, and it cannot be established retroactively. Recorded as unexplained rather than assumed.
+**THIS CONCLUSION WAS WRONG.** At 11:21 on the same day, workout `C1F8E587-6013-4AA0-92DF-785AC67A53BD` — the real session from 31 August, 11:17:14 — was open on screen with **identical data**: offsets 5.262 → 172.688, 134 characters, seven segments, 33.43 kcal. Every figure matches what was logged for it. The workout had not been deleted. It was temporarily not returned.
+
+**Cause of the temporary absence: unknown.** Possibly a HealthKit sync state, an authorisation hiccup, or a transient query failure. It has not been established and should not be guessed at a second time.
+
+**How the error was made.** A query returned 20 workouts, none of them from this app, and the list jumped from 31 August 12:57 straight to 28 August. From that absence, deletion was concluded — and written into the workbook and into an architecture decision record as a serious risk.
+
+**This is the project's own recurring failure, committed by me, for the second time.** The first was a malformed grep that returned zero matches and was read as proof a rationale was missing. This is the same shape: **a null result treated as evidence of absence.** A query that returns nothing tells you the query returned nothing. It does not tell you the thing is not there.
+
+The rule that was already written down and not applied: *a tool's output is evidence about the tool as much as about the subject.*
 
 **What the instrument said while this was true:** *"Query succeeded: 20 workout(s) found."* A green result sitting on top of missing data. This is the tenth instance of the pattern in this project, and it occurred inside the tool built to report honestly about exactly that. A successful query says the question was answered, not that the answer is complete.
 
@@ -1640,13 +1648,13 @@ While attempting the outstanding E5.1 check, the workout list jumped from **31 A
 
 ---
 
-### The consequence for the product, which is serious
+### What survives the retraction
 
-The architecture decided in L4 rests on HealthKit carrying the record from watch to phone, with no transport of the project's own. That decision is sound on the evidence gathered.
+**The durability question is still worth asking, but it is now a question rather than a finding.** Whether an app's HealthKit samples are removed when the app is deleted is genuinely unknown and matters to the L4 decision, which assumed the record persists. It has simply not been demonstrated, and this episode did not demonstrate it.
 
-**But it assumed the record persists.** If an app's HealthKit samples are removed when the app is deleted, then the athlete's entire training history depends on never deleting the app — and reinstalling it, for any reason, would destroy every session. The ADR's accepted risks named the metadata size ceiling and the dependency on iCloud Health sync. **It did not name this one, and this one is larger.**
+The risk entry in `design/L4-transport-decision.md` has been corrected to say so: an open question to be tested deliberately, not an observed failure.
 
-Added to `design/L4-transport-decision.md` as a fourth accepted risk and as a reversal condition.
+**Also unchanged and worth keeping:** the instrument reported *"Query succeeded: 20 workout(s) found"* while returning none of this app's workouts. That remains true and remains the tenth instance of the pattern. A successful query says the question was answered, not that the answer is complete. It is the reason the wrong conclusion was available to reach.
 
 ---
 
