@@ -29,10 +29,10 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | Cycle | Days | Dates | Learning question | Status |
 |---|---|---|---|---|
 | L1 · Staying alive | D1–D2 | **Aug 20–21** | Why does a watch app stop recording, and what does `HKWorkoutSession` change? | **COMPLETE** · E1.0 ✔ E1.1 ✔ E1.2 ✔ E1.3 ✔ · gate passed Day 2 · E1.3 raises an open question for L2 |
-| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
+| L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | **COMPLETE** · E2.0 ✔ E2.0b ✔ E2.1 ✔ E2.2 ✔ E2.2b ✔ E2.3 ✔ · endpoint mystery solved, atomicity proven |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
-| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | E5.0 ✔ · E5.1 ✔ (one sub-question open) · E5.2 ✔ |
+| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | **COMPLETE** · E5.0 ✔ (5/5) E5.1 ✔ E5.2 ✔ · found a fifth category, ASSUMED |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
 
@@ -1894,27 +1894,29 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 # PREDICTION SCORECARD
 
+Every experiment in the Act phase, in order. 19 experiments across five cycles, plus two predictions tested separately.
+
 | Experiment | Prediction held? | Note |
 |---|---|---|
 | E1.0 | 6 of 6 confirmed | Round trip PASSED, but over-claimed — see E1.0b amendment. Prediction 6 (provisioning is the time sink) was the strongest hit. |
-| P5 | Confirmed by denial test | Denial is invisible: no error, empty result. The side-prediction that E1.0b would flip to INCONCLUSIVE was WRONG — the aggregate verdict masked it. Probe since fixed and re-verified: reports MIXED on the same case. |
-| P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
 | E1.0b | CONFIRMED | Added after review found the round trip could not evidence read access. Read access now separately proven. |
+| P2 | Confirmed by sabotage test | Builds clean, crashes instantly on authorise. `catch` never runs. |
+| P5 | Confirmed by denial test | Denial is invisible: no error, empty result. The side-prediction that E1.0b would flip to INCONCLUSIVE was WRONG — the aggregate verdict masked it. Probe since fixed and re-verified: reports MIXED on the same case. |
 | E1.1 | 5 of 5 confirmed | 20.0 s counted vs 97.0 s real — 77 s lost. First attempt invalid: debugger attached. |
 | E1.2 | 2 confirmed, 1 refined, 2 untested | GATE PASSED. 1.23% lost vs 79.4% without a session. Two readings show the drift is steady, not a start-up artifact. |
-| E1.3 | Recovery possible; launch path OPEN | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active — the exact case L2 must handle. Success required an intervening end-workout, which a crashed app cannot do. |
-| E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
+| E1.3 | Recovery possible; launch path solved in L2 | Reproducible three-state sequence. Recovery after force-quit reliably FAILS while a workout is active. **Cause identified by E2.0b:** the call is not idempotent and fails whenever the process already holds a session. |
 | E2.0 | Prediction 1 FALSIFIED | The system does NOT relaunch a crashed app holding a workout session. Kills the only explanation for E1.3's endpoint conflict — cause now unknown. |
+| E2.0b | 3 confirmed, 1 refined, 1 unneeded | NOT IDEMPOTENT. Call 1 succeeds, call 2 conflicts with call 1's own session. Explains every E1.3 observation and settles L2's launch path. |
 | E2.1 | 3 confirmed, 1 mixed · audited | v1 design: 10 states, 26 transitions. Awkward paths lose on state count (4:6) but win on transitions (20:6). Complexity lives in edges, not states. |
-| E2.2b | **5 of 5 confirmed** | Atomic at all three crash points. Round 3's complete 3239 B temp correctly ignored. Harness bug found mid-run via an anomalous byte count; two earlier scorings corrected. |
 | E2.2 | 1 confirmed, 1 wrong, 3 untested | Nothing lost across a force-quit: segments identical, elapsed carried through the dead time. Atomicity and the lossy window remain unproven. |
+| E2.2b | **5 of 5 confirmed** | Atomic at all three crash points. Round 3's complete 3239 B temp correctly ignored. Harness bug found mid-run via an anomalous byte count; two earlier scorings corrected. |
+| E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
 | E3.0 | 4 confirmed, **1 falsified (favourably)** | Crosses in ≤14s with no transport code — even with the phone LOCKED and in another room. The conditional-crossing worry was unfounded. |
 | E3.1 | 3 confirmed, 1 partial | Envelope arrives intact; zero semantic structure. Only metadata is Apple's HKIndoorWorkout. HR samples unverified. |
+| E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
-| E5.0 | **5 of 5 confirmed** | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
+| E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
+| E5.0 | **5 of 5 confirmed** | Two real sessions, 31 Aug and 1 Sep, at 8.8 and 8.7 kcal/min. Heart rate measured directly: 51 samples, 72–140 bpm. Wrist-down held for 89.8 s while running. A double-tap produced a 2.03 s roxzone that passed every check. |
 | E5.1 | 4 confirmed, 1 open · plus an unpredicted fifth category | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
-| E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
-| E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
-| E2.3 | 2 confirmed, 1 wrong on magnitude, 1 design | ROUND-TRIP EXACT — offsets remove reconciliation. Delta was 11.4s of operator delay, not sub-second drift. Found that start() wipes the HK link. |
