@@ -1560,13 +1560,57 @@ Setup: list every number the phone could show after a workout, and classify each
 4. **The line will be blurrier than it looks.** A station duration feels like a recorded fact, but it is the difference between two timestamps I chose to write when I tapped a button. It inherits every mis-tap. I expect the honest category for most of the interesting numbers to be *derived*, not *recorded*.
 5. A screen that shows derived numbers in the same style as recorded ones is making a claim it cannot support. **This is the same failure as L4's INTACT verdict**, moved from a test into a user interface.
 
-**Actual result**
+**Actual result — PARTIAL. The screen works; the derived path is not yet demonstrated.**
 
-<!-- -->
+*2026-09-01. Classification written to `design/L5-data-honesty.md` (96 lines). Review screen built as `HyroxCoach/WorkoutReview.swift`, the first product surface in the project.*
+
+**The classification uses four categories, not two.** The obvious split is recorded against derived. E5.0 showed that is insufficient:
+
+| Category | Meaning |
+|---|---|
+| **MEASURED** | The device recorded it with no human action — workout start, end, duration, active energy, heart-rate samples |
+| **MARKED** | A human pressed a button and a timestamp was written — every segment offset. Accurate only if the press was timely |
+| **DERIVED** | Calculated from the above — every segment duration, every total. Inherits the weakness of its inputs |
+| **UNSUPPORTED** | The data cannot answer it, and it never appears on screen |
+
+A segment offset **is** recorded, but what it records is when a button was pressed, not when the event happened. The 2.03-second roxzone from E5.0 is the proof. So a station duration is DERIVED from the weakest category, twice over.
+
+---
+
+**Observed on device**, using a workout from Apple's own app — 31 Aug, 1 h 39 m 53 s, 743 kcal, no HYROX metadata:
+
+- The review screen renders, with **MEASURED** markers on date, total duration and active energy.
+- **The markers are orange** — the accent token changed in E5.2. The product screen is visibly consuming the shared token system, which is what E5.2's prediction 2 was missing.
+- A workout with no HYROX data **degrades correctly**: "This workout has no segment marks. Only the measured workout summary is available." It is not treated as an error.
+- The **"What this cannot tell you"** section is present and permanent, listing all four unsupported claims.
+
+**The heart-rate instrument works.** The same workout reported **1,169 samples, minimum 77 bpm, maximum 169 bpm, average 118.8 bpm**. The query returns real data at real resolution.
 
 **The gap**
 
-<!-- -->
+| # | Prediction | Outcome |
+|---|---|---|
+| 1 | Recorded: start, end, duration, energy, HR samples, segment offsets | **Confirmed**, but split — the first five are MEASURED, segment offsets are MARKED. The prediction treated them as one category and they are not. |
+| 2 | Derived: every station and roxzone duration, all totals, any pace | **Confirmed** in the classification. **Not yet seen on screen** — the workout tested had no segments. |
+| 3 | Not supported: why a station was slow, fitness trend, injury or health | **Confirmed.** All four are named on screen, permanently, and never rendered as data. |
+| 4 | The line is blurrier than it looks; most interesting numbers are derived, not recorded | **Confirmed, and sharper than predicted.** The blur is not between recorded and derived. It is inside "recorded": MEASURED and MARKED look identical in the data and differ entirely in how far they can be trusted. |
+| 5 | A screen showing derived values in the same style as recorded ones makes a claim it cannot support | **Held as the design rule.** Enforced by category markers and by rendering segment durations to whole seconds, since their inputs are button presses. |
+
+---
+
+### Bonus finding: Apple's own metadata contains an impossible value
+
+The same workout carried `HKWeatherHumidity: 4900 %`. Humidity cannot exceed 100 %. The value is almost certainly 49.00 % stored with a scaling factor the instrument renders raw.
+
+This is a **MEASURED** value — recorded by the device with no human involvement — and it is still wrong on its face. It arrived from Apple, not from this app.
+
+That extends the cycle's argument further than intended. MEASURED was defined as the most trustworthy category. It is the most trustworthy, and it is still not automatically correct: a unit or scaling error produces a number that is complete, well-formed, plausible to a checker, and false. The same shape as the 2.03-second roxzone, arriving from the opposite end of the pipeline.
+
+---
+
+**Outstanding:** the review screen has not yet been opened on a **HyroxCoach workout with segments**. Until it is, three things are unverified: that DERIVED values render, that the **FROM MARKED TIMES** marker appears, and that MEASURED is distinguishable from DERIVED at a glance. That last one is the actual prediction, and it cannot be judged from a workout with nothing derived on screen.
+
+**Status: E5.1 partially complete.**
 
 ---
 
@@ -1687,7 +1731,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
 | E5.0 | 3 confirmed, 1 by proxy, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
-| E5.1 | | |
+| E5.1 | 4 confirmed, 1 held · PARTIAL | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
