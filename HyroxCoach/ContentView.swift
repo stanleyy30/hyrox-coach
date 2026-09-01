@@ -52,7 +52,7 @@ struct ContentView: View {
 
                 List(workoutHistory.rows) { row in
                     NavigationLink {
-                        WorkoutDetailView(row: row)
+                        WorkoutDetailView(row: row, workoutHistory: workoutHistory)
                     } label: {
                         WorkoutRowView(row: row)
                     }
@@ -98,6 +98,9 @@ private struct WorkoutRowView: View {
 
 private struct WorkoutDetailView: View {
     let row: WorkoutRow
+    @ObservedObject var workoutHistory: WorkoutHistory
+    @State private var heartRateSummary: HeartRateSummary?
+    @State private var isLoadingHeartRate = true
 
     var body: some View {
         List {
@@ -133,6 +136,25 @@ private struct WorkoutDetailView: View {
                 )
             }
 
+            Section("Heart rate") {
+                if isLoadingHeartRate {
+                    ProgressView("Loading heart-rate samples…")
+                } else if let heartRateSummary {
+                    Text(heartRateSummary.status)
+                        .font(.headline)
+                        .textSelection(.enabled)
+
+                    if heartRateSummary.sampleCount > 0 {
+                        field("Count", String(heartRateSummary.sampleCount))
+                        field("Minimum", heartRateText(heartRateSummary.minimum))
+                        field("Maximum", heartRateText(heartRateSummary.maximum))
+                        field("Average", heartRateText(heartRateSummary.average))
+                    } else if heartRateSummary.status == "NO SAMPLES" {
+                        Text("The query succeeded and found no heart-rate samples.")
+                    }
+                }
+            }
+
             Section("Metadata") {
                 if row.metadata.isEmpty {
                     Text("No metadata")
@@ -144,6 +166,11 @@ private struct WorkoutDetailView: View {
             }
         }
         .navigationTitle("Workout Detail")
+        .task(id: row.uuid) {
+            isLoadingHeartRate = true
+            heartRateSummary = await workoutHistory.heartRate(for: row.uuid)
+            isLoadingHeartRate = false
+        }
     }
 
     private var activeEnergyText: String {
@@ -160,6 +187,11 @@ private struct WorkoutDetailView: View {
             Text(value)
                 .textSelection(.enabled)
         }
+    }
+
+    private func heartRateText(_ value: Double?) -> String {
+        guard let value else { return "Not available" }
+        return value.formatted(.number.precision(.fractionLength(0...1))) + " bpm"
     }
 
     private func durationText(_ duration: TimeInterval) -> String {

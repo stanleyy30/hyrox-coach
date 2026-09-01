@@ -146,6 +146,14 @@ struct WorkoutRow: Identifiable {
     }
 }
 
+struct HeartRateSummary {
+    let sampleCount: Int
+    let minimum: Double?
+    let maximum: Double?
+    let average: Double?
+    let status: String
+}
+
 @MainActor
 final class WorkoutHistory: ObservableObject {
     @Published private(set) var rows: [WorkoutRow] = []
@@ -205,6 +213,46 @@ final class WorkoutHistory: ObservableObject {
         }
     }
 
+    func heartRate(for workoutUUID: UUID) async -> HeartRateSummary {
+        do {
+            let workout = try await queryWorkout(with: workoutUUID)
+            let samples = try await queryHeartRateSamples(for: workout)
+            let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+            let values = samples.map { sample in
+                sample.quantity.doubleValue(for: beatsPerMinute)
+            }
+            let sampleCount = values.count
+
+            let summary = HeartRateSummary(
+                sampleCount: sampleCount,
+                minimum: values.min(),
+                maximum: values.max(),
+                average: values.isEmpty
+                    ? nil
+                    : values.reduce(0, +) / Double(sampleCount),
+                status: values.isEmpty ? "NO SAMPLES" : "\(sampleCount) SAMPLES"
+            )
+
+            AppLog.health.info(
+                "[\(AppLog.stamp(), privacy: .public)] Heart-rate query completed; workout: \(workoutUUID.uuidString, privacy: .public); sample count: \(sampleCount, privacy: .public); status: \(summary.status, privacy: .public)"
+            )
+            return summary
+        } catch {
+            let summary = HeartRateSummary(
+                sampleCount: 0,
+                minimum: nil,
+                maximum: nil,
+                average: nil,
+                status: "QUERY FAILED — \(error.localizedDescription)"
+            )
+
+            AppLog.health.error(
+                "[\(AppLog.stamp(), privacy: .public)] Heart-rate query failed; workout: \(workoutUUID.uuidString, privacy: .public); sample count: \(summary.sampleCount, privacy: .public); status: \(summary.status, privacy: .public)"
+            )
+            return summary
+        }
+    }
+
     private func queryWorkouts() async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
@@ -224,6 +272,57 @@ final class WorkoutHistory: ObservableObject {
                 }
 
                 continuation.resume(returning: samples?.compactMap { $0 as? HKWorkout } ?? [])
+            }
+
+            healthStore.execute(query)
+        }
+    }
+
+    private func queryWorkout(with uuid: UUID) async throws -> HKWorkout {
+        try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: HKWorkoutType.workoutType(),
+                predicate: HKQuery.predicateForObject(with: uuid),
+                limit: 1,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                guard let workout = samples?.first as? HKWorkout else {
+                    continuation.resume(throwing: HeartRateQueryError.workoutNotFound(uuid))
+                    return
+                }
+
+                continuation.resume(returning: workout)
+            }
+
+            healthStore.execute(query)
+        }
+    }
+
+    private func queryHeartRateSamples(for workout: HKWorkout) async throws -> [HKQuantitySample] {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            throw HeartRateQueryError.heartRateTypeUnavailable
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: heartRateType,
+                predicate: HKQuery.predicateForObjects(from: workout),
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                continuation.resume(
+                    returning: samples?.compactMap { $0 as? HKQuantitySample } ?? []
+                )
             }
 
             healthStore.execute(query)
@@ -324,5 +423,19 @@ final class WorkoutHistory: ObservableObject {
             return "\(minutes)m \(seconds)s"
         }
         return "\(seconds)s"
+    }
+}
+
+private enum HeartRateQueryError: LocalizedError {
+    case workoutNotFound(UUID)
+    case heartRateTypeUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case let .workoutNotFound(uuid):
+            return "Workout \(uuid.uuidString) was not found."
+        case .heartRateTypeUnavailable:
+            return "The HealthKit heart-rate type is unavailable."
+        }
     }
 }
