@@ -32,7 +32,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L2 · Recoverability | D3–D4 | **Aug 24–25** | What has to be true for a workout to survive the app dying? | ▶ **IN PROGRESS** · E2.0 falsified · E2.0b SOLVED the endpoint mystery · E2.1 design done · E2.2 persistence holds · E2.2b atomicity 5/5 · E2.3 EXACT · **L2 COMPLETE** |
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
-| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | ▶ E5.2 ✔ tokens shared · E5.0 next (needs a real workout) · E5.1 waits on it |
+| L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | E5.0 ✔ · E5.1 ✔ (one sub-question open) · E5.2 ✔ |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
 
@@ -1608,7 +1608,21 @@ That extends the cycle's argument further than intended. MEASURED was defined as
 
 ---
 
-**Outstanding:** the review screen has not yet been opened on a **HyroxCoach workout with segments**. Until it is, three things are unverified: that DERIVED values render, that the **FROM MARKED TIMES** marker appears, and that MEASURED is distinguishable from DERIVED at a glance. That last one is the actual prediction, and it cannot be judged from a workout with nothing derived on screen.
+### Verified on a workout with segments, 2026-09-01
+
+A fresh tap-through session with metadata attached was opened in Review. Reported by the learner:
+
+| Check | Result |
+|---|---|
+| Segment rows render with durations | **Confirmed** |
+| **FROM MARKED TIMES** marker appears on values derived from button presses | **Confirmed** |
+| MEASURED distinguishable from DERIVED **at a glance**, without reading markers | **Not reported** |
+
+The first two close the mechanical questions: the DERIVED path renders, and the provenance marker reaches the screen rather than only existing in the code.
+
+**The third is the actual prediction and remains open.** Prediction 5 held that a screen showing derived values in the same style as recorded ones makes a claim it cannot support. Whether this screen avoids that is a question about perception, not about code, and it can only be answered by someone looking at it without being told what to look for. It is recorded as unanswered rather than assumed from the markers being present — the markers existing proves the information is *available*, not that it is *communicated*.
+
+**Note on the workout used.** This was a tap-through, not real exercise. That is appropriate here: E5.1 asks whether the screen distinguishes categories, which does not depend on the effort behind the numbers. E5.0 already supplied the real session, and its 2.03-second roxzone remains the worked example in `design/L5-data-honesty.md`.
 
 ### Unplanned finding, 2026-09-01 — every HyroxCoach workout has been deleted from HealthKit
 
@@ -1636,7 +1650,7 @@ Added to `design/L4-transport-decision.md` as a fourth accepted risk and as a re
 
 ---
 
-**Status: E5.1 partially complete.**
+**Status: E5.1 substantially complete.** The classification is written, the screen is built and consumes the shared tokens, the DERIVED path renders and the provenance marker shows. One sub-question is open: whether the distinction reads at a glance.
 
 ---
 
@@ -1757,7 +1771,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 | E4.0 | 3 confirmed, 2 not reached | 25 segments crossed complete (601 chars, then 543 after the fix). First run: every offset negative and passed as INTACT — completeness is not correctness. Re-run: both fixes verified, check correctly refused seeded data. |
 | E4.1 | Not run | Written to run only if E4.0 failed. It did not fail, so finding the true size limit is optional rather than necessary. |
 | E5.0 | 3 confirmed, 1 by proxy, 1 untested | Real 3m47s session at 8.8 kcal/min. INTACT on genuine exercise. A double-tap produced a 2.03s roxzone that passed every check — plausible by the rules, wrong in fact. Undo existed and was not reachable at the moment it was needed. |
-| E5.1 | 4 confirmed, 1 held · PARTIAL | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
+| E5.1 | 4 confirmed, 1 open | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E4.2 | 5 of 5 confirmed | Nothing left to build. ADR written: do not build the transport. Reversal conditions and three accepted risks recorded. |
 | E3.2 | 3 confirmed, 1 by construction, **1 wrong (it worked)** | All four HYROX keys crossed intact with no transport code. Size limit untested at full race length. L4 now needs rescoping. |
