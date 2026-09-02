@@ -1,0 +1,276 @@
+<title>Ten Days, Six Questions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --paper:#F2F5F7;
+  --surface:#FFFFFF;
+  --ink:#0F1A20;
+  --body:#2A3A44;
+  --muted:#5F727C;
+  --rule:#D3DEE3;
+  --rule-soft:#E5ECEF;
+  --accent:#C4501C;
+  --accent-soft:#FBEBE2;
+  --known:#136A50;
+  --known-soft:#E0F0EA;
+  --open:#8A5A11;
+  --open-soft:#F8EEDC;
+  --shadow:0 1px 2px rgba(15,26,32,.05),0 10px 30px -22px rgba(15,26,32,.3);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1317;
+    --surface:#141F25;
+    --ink:#E8F0F2;
+    --body:#BDCCD3;
+    --muted:#899BA3;
+    --rule:#25343B;
+    --rule-soft:#1B272D;
+    --accent:#F0854F;
+    --accent-soft:#2D1710;
+    --known:#5CBE9C;
+    --known-soft:#0E2A22;
+    --open:#D9A75A;
+    --open-soft:#2C2211;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 30px -22px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1317;
+  --surface:#141F25;
+  --ink:#E8F0F2;
+  --body:#BDCCD3;
+  --muted:#899BA3;
+  --rule:#25343B;
+  --rule-soft:#1B272D;
+  --accent:#F0854F;
+  --accent-soft:#2D1710;
+  --known:#5CBE9C;
+  --known-soft:#0E2A22;
+  --open:#D9A75A;
+  --open-soft:#2C2211;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 30px -22px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--paper);color:var(--body);
+  font-family:"Source Serif 4",Georgia,serif;
+  font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:800px;margin:0 auto;padding:clamp(28px,5vw,60px) clamp(18px,4vw,32px) 90px}
+
+.kick{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 14px;
+}
+h1{
+  font-family:"Sora",system-ui,sans-serif;font-weight:700;
+  font-size:clamp(30px,5vw,46px);line-height:1.05;letter-spacing:-.03em;
+  color:var(--ink);margin:0 0 16px;text-wrap:balance;
+}
+.lede{font-size:19px;line-height:1.55;color:var(--muted);margin:0;max-width:58ch}
+.lede b{color:var(--ink);font-weight:600}
+
+h2{
+  font-family:"Sora",system-ui,sans-serif;font-weight:600;
+  font-size:22px;line-height:1.2;letter-spacing:-.015em;color:var(--ink);
+  margin:0 0 14px;text-wrap:balance;
+}
+h3{font-family:"Sora",system-ui,sans-serif;font-weight:600;font-size:16.5px;color:var(--ink);margin:0 0 6px}
+p{margin:0 0 14px;max-width:68ch}
+section{padding-top:34px;margin-top:34px;border-top:1px solid var(--rule-soft)}
+section:first-of-type{border-top:none;margin-top:26px}
+strong{color:var(--ink);font-weight:600}
+code{
+  font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.85em;
+  background:var(--rule-soft);padding:.12em .38em;border-radius:3px;color:var(--ink);
+}
+
+.tscroll{overflow-x:auto;margin:0 0 14px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-family:"Sora",system-ui,sans-serif;font-size:14px;line-height:1.45}
+th{
+  font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  text-align:left;padding:0 14px 8px 0;border-bottom:1px solid var(--rule);
+}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--body)}
+tr:last-child td{border-bottom:none}
+th:last-child,td:last-child{padding-right:0}
+td.f{color:var(--ink);max-width:32ch}
+td.n{font-family:"JetBrains Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.pill{
+  display:inline-block;font-family:"JetBrains Mono",monospace;
+  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 7px;border-radius:3px;white-space:nowrap;
+}
+.p-known{color:var(--known);background:var(--known-soft)}
+.p-open{color:var(--open);background:var(--open-soft)}
+
+.decision{
+  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  padding:20px 22px;box-shadow:var(--shadow);
+}
+.decision p:last-child{margin-bottom:0}
+
+/* questions */
+.q{
+  display:grid;grid-template-columns:44px minmax(0,1fr);gap:0 18px;
+  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  padding:20px 22px;margin:0 0 12px;box-shadow:var(--shadow);
+}
+.q.first{border-color:var(--accent);border-width:1.5px}
+.qn{
+  font-family:"Sora",sans-serif;font-weight:700;font-size:26px;
+  line-height:1;color:var(--rule);letter-spacing:-.03em;
+}
+.q.first .qn{color:var(--accent)}
+.qb p{font-size:15.5px;margin:0 0 9px}
+.qb p:last-child{margin-bottom:0}
+.qtag{
+  display:inline-block;font-family:"JetBrains Mono",monospace;font-size:10px;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);background:var(--accent-soft);padding:3px 7px;border-radius:3px;margin-bottom:8px;
+}
+@media(max-width:560px){.q{grid-template-columns:1fr;gap:8px}.qn{font-size:20px}}
+
+.quote{
+  border-left:3px solid var(--accent);padding:2px 0 2px 20px;margin:0;
+}
+.quote p{
+  font-family:"Sora",sans-serif;font-size:17px;line-height:1.5;
+  color:var(--ink);margin:0 0 12px;
+}
+.quote p:last-child{margin-bottom:0}
+
+footer{
+  margin-top:44px;padding-top:18px;border-top:1px solid var(--rule);
+  font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:8px 20px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <p class="kick">HyroxCoach · Technical brief</p>
+  <h1>Ten days, six questions</h1>
+  <p class="lede">I spent the Act phase of my challenge <b>measuring watchOS behaviour rather than building features</b>. Before I design the interface, I want to know whether my structural choices are sound — or whether I've built something that works for the wrong reasons.</p>
+
+  <section>
+    <h2>What I built</h2>
+    <p>A watchOS app that records a HYROX-structured workout, and an iOS app that reviews it afterwards. The watch owns the live session; the phone owns everything after it.</p>
+    <p><code>HKWorkoutSession</code> and <code>HKLiveWorkoutBuilder</code> on the watch. A state machine over run → roxzone → station. Segment boundaries persisted atomically to disk on every transition. A semantic summary attached as <code>HKWorkout</code> metadata at <code>finishWorkout</code>.</p>
+    <p><strong>No transport code of my own.</strong> The data reaches the phone on HealthKit's own sync.</p>
+  </section>
+
+  <section>
+    <h2>What I established by measurement</h2>
+    <p>Every figure below came from a real device, with the prediction written down before the test.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Finding</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td class="f">Without a workout session the app suspends soon after wrist-down</td><td class="n">~8 s · 79 % of elapsed time lost</td></tr>
+          <tr><td class="f">With a session it survives, but timers still drop</td><td class="n">1.23 % over 27 min · ≈65 s per 90-min race</td></tr>
+          <tr><td class="f">Durations must come from stored timestamps, never counting</td><td class="n">the two rows above</td></tr>
+          <tr><td class="f"><code>recoverActiveWorkoutSession</code> is not idempotent</td><td class="n">call 1 recovers · call 2 fails on call 1's own session</td></tr>
+          <tr><td class="f">The system does not resurrect a crashed app holding a session</td><td class="n">deliberate crash · no autonomous relaunch</td></tr>
+          <tr><td class="f">Temp-file-then-replace survives a kill at any point</td><td class="n">3 injected crash points · envelope intact</td></tr>
+          <tr><td class="f">Workouts cross to the phone with no code of mine</td><td class="n">≤14 s · phone locked, in another room</td></tr>
+          <tr><td class="f">Custom metadata crosses with them, at full race length</td><td class="n">25 segments · 601 chars · intact</td></tr>
+          <tr><td class="f">Boundaries stored as offsets from <code>startDate</code> round-trip exactly</td><td class="n">millisecond, all segments</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What I decided</h2>
+    <div class="decision">
+      <p><strong>Not to build WatchConnectivity at all.</strong> Every capability it was planned to provide had been removed by measurement: the workout already crosses, metadata carries the station data, a full race fits, and both records share one anchor so nothing needs merging.</p>
+      <p>The only thing metadata cannot carry is live data during the workout — and the iOS app does not display live data, by design. I wrote a decision record with reversal conditions rather than building it.</p>
+      <p style="color:var(--muted)">This is the decision I would most like a second opinion on.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Six questions</h2>
+    <p>In priority order. The first is the one I am least sure about.</p>
+
+    <div class="q first">
+      <div class="qn">1</div>
+      <div class="qb">
+        <span class="qtag">Structural</span>
+        <h3>Should segments be <code>HKWorkoutEvent</code>, not metadata?</h3>
+        <p>I encoded stations as a custom metadata string — <code>name@offsetSeconds</code>, joined and attached at finish. HealthKit has <code>HKWorkoutEvent</code> with <code>.segment</code> and <code>.marker</code> types, and I did not use it.</p>
+        <p>My approach works and is measured. But is metadata-as-carrier a legitimate pattern here, or am I using a field that happens to work for something it was not meant for? Would <code>.segment</code> events survive OS changes better, or appear in Apple's own Health UI?</p>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="qn">2</div>
+      <div class="qb">
+        <span class="qtag">Durability</span>
+        <h3>Does deleting the app remove its HealthKit samples?</h3>
+        <p>My whole architecture assumes HealthKit <em>keeps</em> the record. I have never tested it. If an app's samples die with the app, an athlete's entire history depends on never reinstalling — which would change the decision above.</p>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="qn">3</div>
+      <div class="qb">
+        <span class="qtag">Limits</span>
+        <h3>What is the metadata size limit?</h3>
+        <p>Undocumented as far as I can find. 601 characters passed comfortably and I never found the ceiling. I expect a limit would truncate silently rather than raise an error — is that right?</p>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="qn">4</div>
+      <div class="qb">
+        <span class="qtag">Modelling</span>
+        <h3>What do real apps do about <code>activityType</code>?</h3>
+        <p>HYROX has no HealthKit type, so every workout is permanently <code>.crossTraining</code> — a slightly wrong description, forever. What do you use, and does the choice affect rings, categorisation or energy estimation?</p>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="qn">5</div>
+      <div class="qb">
+        <span class="qtag">Interaction</span>
+        <h3>Correction on the watch, mid-effort</h3>
+        <p>I designed an undo that restores a mis-tapped segment's original timestamps. It works. I did not use it when I actually mis-tapped during a real session, because it lives on a different screen. What works for correction on a watch, out of breath, one-handed?</p>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="qn">6</div>
+      <div class="qb">
+        <span class="qtag">Scale</span>
+        <h3>What breaks at 90 minutes that does not at 5?</h3>
+        <p>My longest real session was 5 minutes 11 seconds. Battery, session longevity, memory pressure and background behaviour across a full race are all untested.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The honest summary</h2>
+    <div class="quote">
+      <p>I have numbers for how the platform behaves and a workbook of what I predicted against what happened. Three of my cycles ended by proving planned work unnecessary, so I built less than I intended, on purpose.</p>
+      <p>What I do not have is any way to know whether the structure underneath is the one an experienced person would have chosen.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Act phase · 10 working days</span>
+    <span>19 experiments · 5 cycles</span>
+    <span>Predictions written before every test</span>
+  </footer>
+
+</div>
