@@ -98,6 +98,19 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
         AppLog.workout.info("\(AppLog.stamp(), privacy: .public) E1.2 ending session")
         session.end()
 
+        // HealthKit's activityType is a fixed Apple enum with no HYROX case, so
+        // every session is permanently recorded as .crossTraining. The brand-name
+        // key is the only place a workout can carry a name that enum does not
+        // cover. Whether it surfaces in Apple's own Health UI is untested.
+        //
+        // Added here rather than in ProtocolMachine because that type is
+        // deliberately independent of HealthKit — it owns the semantic record,
+        // and HealthKit-specific keys belong on this side of the boundary.
+        var metadata = metadata
+        if metadata != nil {
+            metadata?[HKMetadataKeyWorkoutBrandName] = "HYROX"
+        }
+
         if let metadata, !metadata.isEmpty {
             let keyCount = metadata.count
             builder.addMetadata(metadata) { [weak self] success, error in
