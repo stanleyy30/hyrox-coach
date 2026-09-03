@@ -1960,6 +1960,59 @@ MEASURED was defined as the most trustworthy category — recorded by the device
 
 ---
 
+## Migration to `HKWorkoutEvent` — verified, and it exposed a bug the string was hiding
+
+*2026-09-03, 10:52. Segments now written as `HKWorkoutEvent` of type `.segment` alongside the existing metadata string, so the two can be compared before the string is retired.*
+
+**Result: `AGREE — 7 segment(s)`.** Seven `.segment` events, each with a real `dateInterval` and metadata carrying `HYROXSegmentName` and `HYROXSegmentIndex`. `HKWorkoutBrandName: HYROX` also present.
+
+**The events are internally consistent.** Each duration chains exactly into the next segment's start:
+
+```
+Preparing            4.843 + 0.933 =  5.776  = next start
+Run 1                5.776 + 0.949 =  6.725  = next start
+Roxzone 1            6.725 + 0.667 =  7.392  = next start
+Station 1 — SkiErg   7.392 + 1.033 =  8.425  = next start
+Run 2                8.425 + 0.750 =  9.175  ≈ next start 9.174
+Roxzone 2            9.174 + 1.599 = 10.773  = next start
+Station 2            10.773 + 0.600 = 11.373  ← protocol ends here
+```
+
+Unlike Apple's markers, which report `0.000`, these carry genuine durations.
+
+---
+
+### The bug: the two representations disagree about the final segment
+
+| | Station 2 — Sled Push |
+|---|---|
+| `.segment` event duration | **0.600 s** |
+| Review screen duration | **9 s** |
+
+The workout ran to **19 s**, but the protocol's last segment ended at **11.373 s** — 7.6 seconds before the workout was stopped.
+
+`WorkoutReview` computes the final segment's duration as *workout end minus segment start*, and labels it **"FROM MARKED + MEASURED"** — treating the workout's end as the segment's end. That is only correct if the workout is stopped at the instant the last station finishes. Here it was not, and the screen reported a 9-second station that actually lasted 0.6 seconds.
+
+**The event is right and the screen is wrong.** The segment genuinely ended when Advance was tapped into `completed`; the extra 7.6 seconds is time after the protocol, not part of the station.
+
+---
+
+### Why the check said AGREE anyway
+
+The comparison tests **count, names and start offsets**. It does not compare durations — because until this change only one representation had them.
+
+So `AGREE` is **true for what it compared**, and it does not mean the two representations agree about everything. That is the project's recurring pattern once more, and this time it appeared in the verification built for the migration itself, on the first run.
+
+**It is also the argument for having migrated.** The string carried only start offsets, so this disagreement could not exist in it — and therefore could not be *detected* in it. Adding a second representation with real end times made a wrong number on the review screen visible. The bug was always there; nothing could see it before.
+
+**Two actions follow:**
+1. Extend the comparison to include durations, so `AGREE` means what a reader assumes it means.
+2. Fix `WorkoutReview` to use the segment's own end rather than the workout's, and reserve "FROM MARKED + MEASURED" for the case where those genuinely coincide.
+
+**Status: migration verified. Both defects recorded, neither fixed yet.**
+
+---
+
 # RUNNING FAILURE LOG
 
 Every bug, with the symptom, the layer it *appeared* to be in, and the layer the cause was *actually* in. The mismatches are the most valuable rows.
