@@ -5,6 +5,14 @@ import Combine
 import Foundation
 import HealthKit
 
+struct WorkoutEventRecord: Identifiable {
+    let id: Int
+    let typeName: String
+    let startOffset: TimeInterval
+    let duration: TimeInterval
+    let metadata: [String: String]
+}
+
 struct WorkoutRow: Identifiable {
     let uuid: UUID
     let startDate: Date
@@ -15,8 +23,27 @@ struct WorkoutRow: Identifiable {
     let deviceName: String
     let totalActiveEnergyKilocalories: Double?
     let metadata: [String: String]
+    let events: [WorkoutEventRecord]
 
     var id: UUID { uuid }
+
+    var eventSummary: String {
+        guard !events.isEmpty else { return "NO EVENTS" }
+
+        let counts = Dictionary(grouping: events, by: \.typeName)
+            .mapValues(\.count)
+        let breakdown = counts
+            .sorted { first, second in
+                if first.value == second.value {
+                    return first.key < second.key
+                }
+                return first.value > second.value
+            }
+            .map { "\($0.value) \($0.key)" }
+            .joined(separator: ", ")
+        let eventWord = events.count == 1 ? "EVENT" : "EVENTS"
+        return "\(events.count) \(eventWord) · \(breakdown)"
+    }
 
     var hasHyroxMetadata: Bool {
         metadata.keys.contains { $0.hasPrefix("HYROX") }
@@ -333,6 +360,27 @@ final class WorkoutHistory: ObservableObject {
         let deviceName = workout.device?.name
             ?? workout.sourceRevision.productType
             ?? "unknown"
+        let events = (workout.workoutEvents ?? [])
+            .enumerated()
+            .map { index, event in
+                WorkoutEventRecord(
+                    id: index,
+                    typeName: workoutEventTypeName(for: event.type),
+                    startOffset: event.dateInterval.start.timeIntervalSince(workout.startDate),
+                    duration: event.dateInterval.duration,
+                    metadata: Dictionary(
+                        uniqueKeysWithValues: (event.metadata ?? [:]).map { key, value in
+                            (key, readableMetadataValue(value))
+                        }
+                    )
+                )
+            }
+            .sorted { first, second in
+                if first.startOffset == second.startOffset {
+                    return first.id < second.id
+                }
+                return first.startOffset < second.startOffset
+            }
 
         let row = WorkoutRow(
             uuid: workout.uuid,
@@ -349,11 +397,15 @@ final class WorkoutHistory: ObservableObject {
                 uniqueKeysWithValues: (workout.metadata ?? [:]).map { key, value in
                     (key, readableMetadataValue(value))
                 }
-            )
+            ),
+            events: events
         )
 
         AppLog.health.info(
             "[\(AppLog.stamp(), privacy: .public)] HYROX metadata integrity; workout: \(row.uuid.uuidString, privacy: .public); verdict: \(row.hyroxIntegrity, privacy: .public)"
+        )
+        AppLog.health.info(
+            "[\(AppLog.stamp(), privacy: .public)] Workout events; workout: \(row.uuid.uuidString, privacy: .public); count and types: \(row.eventSummary, privacy: .public)"
         )
 
         return row
@@ -395,6 +447,29 @@ final class WorkoutHistory: ObservableObject {
             return "Other"
         default:
             return "Activity type \(type.rawValue)"
+        }
+    }
+
+    private static func workoutEventTypeName(for type: HKWorkoutEventType) -> String {
+        switch type {
+        case .pause:
+            return "pause"
+        case .resume:
+            return "resume"
+        case .lap:
+            return "lap"
+        case .marker:
+            return "marker"
+        case .motionPaused:
+            return "motion paused"
+        case .motionResumed:
+            return "motion resumed"
+        case .segment:
+            return "segment"
+        case .pauseOrResumeRequest:
+            return "pause or resume request"
+        @unknown default:
+            return "event type \(type.rawValue)"
         }
     }
 

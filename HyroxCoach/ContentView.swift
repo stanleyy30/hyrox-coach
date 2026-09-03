@@ -158,6 +158,37 @@ private struct WorkoutDetailView: View {
                 }
             }
 
+            Section("Workout events") {
+                Text(row.eventSummary)
+                    .font(.headline)
+                    .textSelection(.enabled)
+
+                if row.events.isEmpty {
+                    Text(
+                        "This workout carries no events. This is normal for apps that do not record structure."
+                    )
+                } else {
+                    ForEach(row.events) { event in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.typeName)
+                                .font(.headline)
+                            field("Start offset", eventOffsetText(event.startOffset))
+                            field("Duration", eventDurationText(event.duration))
+
+                            if !event.metadata.isEmpty {
+                                Text("Metadata")
+                                    .font(.caption)
+                                ForEach(event.metadata.keys.sorted(), id: \.self) { key in
+                                    field(key, event.metadata[key] ?? "")
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
             Section("Metadata") {
                 if row.metadata.isEmpty {
                     Text("No metadata")
@@ -195,6 +226,14 @@ private struct WorkoutDetailView: View {
     private func heartRateText(_ value: Double?) -> String {
         guard let value else { return "Not available" }
         return value.formatted(.number.precision(.fractionLength(0...1))) + " bpm"
+    }
+
+    private func eventOffsetText(_ offset: TimeInterval) -> String {
+        String(format: "%.3f seconds", offset)
+    }
+
+    private func eventDurationText(_ duration: TimeInterval) -> String {
+        String(format: "%.3f seconds", duration)
     }
 
     private func durationText(_ duration: TimeInterval) -> String {
