@@ -1900,7 +1900,49 @@ record structure.
 
 **Concluding from this that Apple never records structure would be the same error made twice already in this project** — reading an absence as proof. The test is not finished. It needs either the Lap button pressed several times, or a custom interval workout built in Apple's Workout app, and then the events checked again.
 
-**Status: open.**
+**RESOLVED 2026-09-03, 10:26.** A second run in Apple's Workout app with the Lap button pressed produced:
+
+```
+Workout events: 5 EVENTS · 5 marker
+
+marker  start offset  24.931 s   duration 0.000 s
+marker  start offset  51.251 s   duration 0.000 s
+marker  start offset  73.555 s   duration 0.000 s
+marker  start offset  73.888 s   duration 0.000 s
+marker  start offset 102.251 s   duration 0.000 s
+```
+
+**Apple does record workout events. It uses `.marker`, not `.segment`.**
+
+**Every duration is 0.000 seconds.** Markers are *points in time*, not intervals. Apple does not record "this lap lasted 26 seconds" — it records "something happened at 51.251 s" and leaves the arithmetic to whoever reads it.
+
+**That is structurally identical to what this project already does.** `HYROXSegments` stores a start offset per segment and derives every duration by subtraction. Apple's own app takes the same approach through a first-class API instead of a parsed string.
+
+**The consequence for the architecture.** The choice is not between "my way" and "Apple's way" — they are the same model. It is between two places to put it:
+
+| | Metadata string (current) | `HKWorkoutEvent` |
+|---|---|---|
+| Readable by other apps | No | Yes |
+| Parsing required | Yes, split on `;` and `@` | None |
+| Size ceiling | Unknown, untested | Not a concern |
+| Silent truncation risk | Real | None |
+| Carries a name per boundary | Yes, in the string | Needs `.segment` with metadata, or a parallel scheme |
+
+Apple choosing `.marker` does not prevent this project writing `.segment` events with a real `dateInterval` and the station name in each event's own metadata — which would be strictly better than both, and is available through `HKWorkoutBuilder.addWorkoutEvents`.
+
+---
+
+### The detail worth more than the answer
+
+Markers 3 and 4 are **0.333 seconds apart**: 73.555 and 73.888.
+
+That is a double press. The Lap button was hit twice in a third of a second, and **Apple's own Workout app recorded both**, with no debounce, no merge, and nothing marking the second as suspect.
+
+This is exactly the failure that produced this project's 2.03-second roxzone in E5.0 — a mis-tap while moving, recorded as fact. It appears here in Apple's own first-party app, written by the team that owns the API.
+
+**So the correction problem is not a beginner's mistake in this project.** It is unsolved in the platform's reference implementation. Which raises the design bar rather than lowering it: if Apple has not solved marking boundaries accurately mid-effort, doing it well is a genuine contribution rather than catching up.
+
+**Status: RESOLVED.** Apple records structure as markers. `HKWorkoutEvent` is a legitimate and better home for segment boundaries than a metadata string. Migration is a change to *where* structure is written, not *how* it is modelled.
 
 ---
 
@@ -1908,9 +1950,9 @@ record structure.
 
 E5.1 recorded one workout reporting `HKWeatherHumidity: 4900 %`, and noted that humidity cannot exceed 100 %.
 
-**A second workout now reports `HKWeatherHumidity: 6000 %.`** Different session, different day, same impossible shape. Almost certainly 49.00 % and 60.00 % stored with a scaling factor the instrument renders raw.
+**A second workout reported `HKWeatherHumidity: 6000 %`, and a third `5900 %`.** Different sessions, same impossible shape. Almost certainly 49.00 %, 60.00 % and 59.00 % stored with a scaling factor the instrument renders raw.
 
-**Two data points make it systematic rather than an anomaly.** This matters to the classification in `design/L5-data-honesty.md`:
+**Three data points make it systematic rather than an anomaly.** This matters to the classification in `design/L5-data-honesty.md`:
 
 MEASURED was defined as the most trustworthy category — recorded by the device with no human involvement. It is still the most trustworthy. It is also **reliably wrong in this field**, and nothing in the value signals that. A unit or scaling error produces a number that is complete, well-formed, correctly transported, and false — arriving from Apple rather than from anything this project wrote.
 
