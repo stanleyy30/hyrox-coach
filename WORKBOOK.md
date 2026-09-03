@@ -33,7 +33,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | **COMPLETE** · E5.0 ✔ (5/5) E5.1 ✔ E5.2 ✔ · found a fifth category, ASSUMED |
-| L6 · The platform's own idiom | — | **Sep 3** | Is the way I record structure the way the platform records it? | **POST-ACT** · E6.0 ✔ E6.1 ✔ E6.2 ✔ · E6.3 partial · no predictions written, recorded as a departure |
+| L6 · The platform's own idiom | — | **Sep 3** | Is the way I record structure the way the platform records it? | **COMPLETE** · E6.0 ✔ E6.1 ✔ E6.2 ✔ E6.3 ✔ · no predictions written, recorded as a departure |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
 
@@ -2033,9 +2033,22 @@ So `AGREE` is **true for what it compared**, and it does not mean the two repres
 
 **Result so far.** The key is written and arrives: the 10:52 session shows `HKWorkoutBrandName: HYROX` in its metadata on the phone.
 
-**Outstanding:** whether **Apple's own Health app** displays it as HYROX rather than Cross Training. That is the question that decides whether this is a real answer to "there is no HYROX workout type" or merely a private label only this app can read.
+**RESOLVED 2026-09-03. Apple's Health app displays the workout as HYROX.**
 
-**Status: partially answered.**
+The brand name is not a private label. It reaches Apple's own interface, on a workout recorded entirely by this app, with this app's own live screens.
+
+**What this does and does not change — the distinction matters.**
+
+| | |
+|---|---|
+| **Presentation** | The workout is displayed as **HYROX** in Apple's Health app |
+| **Classification** | It is still `.crossTraining` internally |
+
+`activityType` remains the fixed enum it always was. Rings, activity categorisation and energy estimation still treat this as cross training, because that is what the type says. The brand name changes what a person reads; it does not change what the system counts it as.
+
+**Why this is the answer to the problem as posed.** The question was whether a workout can be called HYROX when HealthKit has no HYROX type. It can — visibly, in Apple's own app, at the cost of one metadata key. The alternative route, WorkoutKit's `CustomWorkout` with a `displayName`, would have achieved the same naming while surrendering the live watch experience entirely. One line of metadata bought what an architectural rewrite was being considered for.
+
+**Status: E6.3 complete.**
 
 ---
 
@@ -2090,4 +2103,4 @@ Every experiment in the Act phase, in order — 19 across five cycles, plus two 
 | E6.0 | no predictions — investigative | Apple records lap presses as `.marker` with 0.000 duration. Points, not intervals — the same model this project already used, in a first-class API. |
 | E6.1 | no predictions — investigative | Apple's own humidity reported 4900 %, 6000 % and 5900 % across three workouts. MEASURED is the most trustworthy category and still not automatically correct. |
 | E6.2 | no predictions — investigative | Migration verified AGREE on 7 segments. Immediately exposed a review-screen bug the metadata string could not have shown. Both defects fixed. |
-| E6.3 | no predictions — investigative | `HKWorkoutBrandName: HYROX` is written and arrives. Whether Apple's Health app displays it is still open. |
+| E6.3 | no predictions — investigative | **Apple's Health app displays the workout as HYROX.** Presentation solved with one metadata key; classification is still `.crossTraining`, so rings and energy still count it as cross training. |
