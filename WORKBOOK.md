@@ -1872,6 +1872,52 @@ An independent consistency check of every recorded L1 number, run against the so
 
 ---
 
+# POST-ACT INVESTIGATION — 2026-09-03
+
+*The Act phase is closed. These are checks run afterwards, to inform what gets built next. Logged to the same standard as the cycles.*
+
+---
+
+## Does Apple's own Workout app record `HKWorkoutEvent` structure?
+
+**Why this is being asked.** This project records station boundaries as a custom metadata string. HealthKit has a first-class concept for intervals inside a workout — `HKWorkoutEvent`, with `.segment`, `.marker` and `.lap` types — which was never used. A technical mentor raised it, and the fastest way to judge it is to look at what Apple itself writes rather than argue about it.
+
+**The instrument.** The iOS detail view now lists every event on a workout: readable type name, start offset **relative to the workout's start** so it is directly comparable with this project's own segment offsets, duration, and each event's own metadata. An empty list reports `NO EVENTS` and is presented as normal, because most apps record no structure.
+
+**Result — inconclusive, and deliberately recorded as such.**
+
+Apple's own Workout app, Running, 3 Sep 10:06:57, 3 m 5 s:
+
+```
+Workout events: NO EVENTS
+This workout carries no events. This is normal for apps that do not
+record structure.
+```
+
+**What this establishes:** the instrument works, and a plain Apple run with no laps pressed carries no events.
+
+**What it does not establish:** whether Apple writes events *when there is structure to write*. This workout had none. `HKAverageMETs 1.6` and a 71–88 bpm range show it was started and stopped at a desk, so no lap button was pressed either.
+
+**Concluding from this that Apple never records structure would be the same error made twice already in this project** — reading an absence as proof. The test is not finished. It needs either the Lap button pressed several times, or a custom interval workout built in Apple's Workout app, and then the events checked again.
+
+**Status: open.**
+
+---
+
+## Confirmed: Apple's own MEASURED values carry a systematic unit error
+
+E5.1 recorded one workout reporting `HKWeatherHumidity: 4900 %`, and noted that humidity cannot exceed 100 %.
+
+**A second workout now reports `HKWeatherHumidity: 6000 %.`** Different session, different day, same impossible shape. Almost certainly 49.00 % and 60.00 % stored with a scaling factor the instrument renders raw.
+
+**Two data points make it systematic rather than an anomaly.** This matters to the classification in `design/L5-data-honesty.md`:
+
+MEASURED was defined as the most trustworthy category — recorded by the device with no human involvement. It is still the most trustworthy. It is also **reliably wrong in this field**, and nothing in the value signals that. A unit or scaling error produces a number that is complete, well-formed, correctly transported, and false — arriving from Apple rather than from anything this project wrote.
+
+**Consequence:** MEASURED means *"no human timed this"*, not *"this is correct"*. Any value from an outside source needs a plausibility bound the same way a MARKED value does — humidity cannot exceed 100 %, a heart rate cannot be 400, a segment cannot start before its workout. The plausibility check built in L4 for this project's own data applies just as much to data it merely receives.
+
+---
+
 # RUNNING FAILURE LOG
 
 Every bug, with the symptom, the layer it *appeared* to be in, and the layer the cause was *actually* in. The mismatches are the most valuable rows.
