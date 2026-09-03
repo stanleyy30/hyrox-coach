@@ -33,6 +33,7 @@ Predictions are drafted before the experiment runs and are never edited afterwar
 | L3 · The crossing | D5–D6 | **Aug 27–28** | Does a workout actually cross to the phone unaided, and what arrives when it does? | **COMPLETE** · E3.0 ✔ E3.1 ✔ E3.2 ✔ · L4 needs rescoping |
 | L4 · The limits of the free crossing | D7–D8 | **Aug 31 – Sep 1** | Where does the free crossing break, and what genuinely still needs a transport of my own? | **COMPLETE** · E4.0 ✔ · E4.1 not needed · E4.2 ✔ no transport to be built |
 | L5 · Honest representation | D9–D10 | **Sep 3–4** | What can this data honestly say, and what can it not? | **COMPLETE** · E5.0 ✔ (5/5) E5.1 ✔ E5.2 ✔ · found a fifth category, ASSUMED |
+| L6 · The platform's own idiom | — | **Sep 3** | Is the way I record structure the way the platform records it? | **POST-ACT** · E6.0 ✔ E6.1 ✔ E6.2 ✔ · E6.3 partial · no predictions written, recorded as a departure |
 
 **Re-baselined 2026-08-24 against the project Gantt.** The ten Act days are **working days, not consecutive calendar days**: Aug 20, 21, 24, 25, 27, 28, 31, Sep 1, 3, 4. Weekends and the intervening gap days are not Act days.
 
@@ -1845,9 +1846,13 @@ A successful query says the question was answered. It does not say the answer is
 
 ---
 
-# CYCLE L6 · Wrapper — REMOVED
+# CYCLE L6 — the number, and what happened to it
 
-Dropped in the 2026-08-24 re-baseline. The Gantt carries five cycles. Presentation prep, evidence assembly and rehearsal now sit inside L5 or after Act closes on 4 September, rather than taking a numbered Act day.
+The original L6 was a presentation wrapper. It was dropped in the 2026-08-24 re-baseline, because a cycle producing no learning did not deserve one of the ten Act days.
+
+The number was reused on 2026-09-03 for the platform-idiom work, which did produce learning: how Apple records structure, a migration to `HKWorkoutEvent`, two defects that migration exposed, and whether a workout can carry the name HYROX.
+
+**That cycle is recorded below**, after the L5 summary and before the failure log.
 
 ---
 
@@ -1872,13 +1877,17 @@ An independent consistency check of every recorded L1 number, run against the so
 
 ---
 
-# POST-ACT INVESTIGATION — 2026-09-03
+# CYCLE L6 · The platform's own idiom — 2026-09-03
 
-*The Act phase is closed. These are checks run afterwards, to inform what gets built next. Logged to the same standard as the cycles.*
+**Learning question:** *Is the way I record a workout's structure the way the platform records it — and if not, should I change?*
+
+**How this cycle differs from the other five, and it matters.** L1–L5 were planned, with predictions written before every experiment. **L6 was not.** It began as a follow-up to a conversation with a technical mentor, who asked why `HKWorkoutEvent` was not being used. The work was investigative rather than predictive: questions were asked of the platform and answered from its data, but no predictions were recorded in advance.
+
+That is a real departure from the method the rest of this workbook follows, and it is recorded rather than disguised. The findings below are evidence; they are not scored against anything, because there was nothing to score them against.
 
 ---
 
-## Does Apple's own Workout app record `HKWorkoutEvent` structure?
+## E6.0 — Does Apple's own Workout app record `HKWorkoutEvent` structure?
 
 **Why this is being asked.** This project records station boundaries as a custom metadata string. HealthKit has a first-class concept for intervals inside a workout — `HKWorkoutEvent`, with `.segment`, `.marker` and `.lap` types — which was never used. A technical mentor raised it, and the fastest way to judge it is to look at what Apple itself writes rather than argue about it.
 
@@ -1946,7 +1955,7 @@ This is exactly the failure that produced this project's 2.03-second roxzone in 
 
 ---
 
-## Confirmed: Apple's own MEASURED values carry a systematic unit error
+## E6.1 — Apple's own MEASURED values carry a systematic unit error
 
 E5.1 recorded one workout reporting `HKWeatherHumidity: 4900 %`, and noted that humidity cannot exceed 100 %.
 
@@ -1960,7 +1969,7 @@ MEASURED was defined as the most trustworthy category — recorded by the device
 
 ---
 
-## Migration to `HKWorkoutEvent` — verified, and it exposed a bug the string was hiding
+## E6.2 — Migration to `HKWorkoutEvent`, verified — and the bug it exposed
 
 *2026-09-03, 10:52. Segments now written as `HKWorkoutEvent` of type `.segment` alongside the existing metadata string, so the two can be compared before the string is retired.*
 
@@ -2009,7 +2018,24 @@ So `AGREE` is **true for what it compared**, and it does not mean the two repres
 1. Extend the comparison to include durations, so `AGREE` means what a reader assumes it means.
 2. Fix `WorkoutReview` to use the segment's own end rather than the workout's, and reserve "FROM MARKED + MEASURED" for the case where those genuinely coincide.
 
-**Status: migration verified. Both defects recorded, neither fixed yet.**
+**Both defects fixed, 2026-09-03.**
+
+- `WorkoutReview` now takes each segment's duration from its event's own `dateInterval`. A segment with no recorded end displays as **unknown** rather than absorbing whatever time remained after the protocol finished. **"FROM MARKED + MEASURED"** is now used only when the segment's end genuinely coincides with the workout's, within one second.
+- The agreement check now compares **durations** as well as count, names and offsets, at the same 0.05 s tolerance. The final segment's duration cannot be derived from the string, so that is **stated in the verdict** rather than skipped silently: `AGREE — 7 segment(s), 6 durations compared; final segment duration skipped because the string has no following entry.`
+
+**Status: E6.2 complete.** Migration verified, both defects fixed. Not yet re-run on device — the fixes are a claim about the code until a session confirms them.
+
+---
+
+## E6.3 — Can a workout carry the name HYROX?
+
+**Why.** `activityType` is a fixed Apple enum with no HYROX case, so every session is permanently recorded as Cross Training. `HKMetadataKeyWorkoutBrandName` is the only place a workout can carry a name that enum does not cover.
+
+**Result so far.** The key is written and arrives: the 10:52 session shows `HKWorkoutBrandName: HYROX` in its metadata on the phone.
+
+**Outstanding:** whether **Apple's own Health app** displays it as HYROX rather than Cross Training. That is the question that decides whether this is a real answer to "there is no HYROX workout type" or merely a private label only this app can read.
+
+**Status: partially answered.**
 
 ---
 
@@ -2035,7 +2061,7 @@ Every bug, with the symptom, the layer it *appeared* to be in, and the layer the
 
 # PREDICTION SCORECARD
 
-Every experiment in the Act phase, in order. 19 experiments across five cycles, plus two predictions tested separately.
+Every experiment in the Act phase, in order — 19 across five cycles, plus two predictions tested separately. The four L6 rows are post-Act and carry no predictions, which is recorded rather than hidden.
 
 | Experiment | Prediction held? | Note |
 |---|---|---|
@@ -2061,3 +2087,7 @@ Every experiment in the Act phase, in order. 19 experiments across five cycles, 
 | E5.0 | **5 of 5 confirmed** | Two real sessions, 31 Aug and 1 Sep, at 8.8 and 8.7 kcal/min. Heart rate measured directly: 51 samples, 72–140 bpm. Wrist-down held for 89.8 s while running. A double-tap produced a 2.03 s roxzone that passed every check. |
 | E5.1 | 4 confirmed, 1 open · plus an unpredicted fifth category | Four categories, not two: MEASURED and MARKED look identical in data and differ entirely in trust. Screen works and consumes the tokens. DERIVED path not yet seen on screen. Apple's own metadata carried humidity of 4900%. |
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
+| E6.0 | no predictions — investigative | Apple records lap presses as `.marker` with 0.000 duration. Points, not intervals — the same model this project already used, in a first-class API. |
+| E6.1 | no predictions — investigative | Apple's own humidity reported 4900 %, 6000 % and 5900 % across three workouts. MEASURED is the most trustworthy category and still not automatically correct. |
+| E6.2 | no predictions — investigative | Migration verified AGREE on 7 segments. Immediately exposed a review-screen bug the metadata string could not have shown. Both defects fixed. |
+| E6.3 | no predictions — investigative | `HKWorkoutBrandName: HYROX` is written and arrives. Whether Apple's Health app displays it is still open. |
