@@ -107,9 +107,31 @@ struct WorkoutRow: Identifiable {
                         difference
                     )
                 }
+
+                guard index + 1 < stringSegments.count else {
+                    continue
+                }
+
+                guard event.duration.isFinite else {
+                    return "DISAGREE — event duration for index \(position) “\(stringSegment.name)” could not be parsed as a finite number"
+                }
+
+                let stringDuration = stringSegments[index + 1].offset - stringSegment.offset
+                let durationDifference = abs(stringDuration - event.duration)
+                guard durationDifference <= 0.05 else {
+                    return String(
+                        format: "DISAGREE — index %d “%@” durations: string %.3f seconds, events %.3f seconds; difference %.3f seconds",
+                        position,
+                        stringSegment.name,
+                        stringDuration,
+                        event.duration,
+                        durationDifference
+                    )
+                }
             }
 
-            return "AGREE — \(stringSegments.count) segment(s)"
+            let comparedDurationCount = max(stringSegments.count - 1, 0)
+            return "AGREE — \(stringSegments.count) segment(s), \(comparedDurationCount) durations compared; final segment duration skipped because the string has no following entry"
         }
     }
 

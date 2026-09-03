@@ -7,10 +7,20 @@ struct WorkoutReview: View {
     @Environment(\.colorScheme) private var colourScheme
 
     private var segments: [ReviewSegment]? {
+        let segmentEvents = row.events.filter { event in
+            event.typeName == "segment" && event.metadata["HYROXSegmentName"] != nil
+        }
+        if !segmentEvents.isEmpty {
+            return ReviewSegment.fromEvents(
+                segmentEvents,
+                workoutDuration: row.duration
+            )
+        }
+
         guard let encodedSegments = row.metadata["HYROXSegments"] else {
             return nil
         }
-        return ReviewSegment.parse(encodedSegments, workoutDuration: row.duration)
+        return ReviewSegment.parse(encodedSegments)
     }
 
     var body: some View {
@@ -18,13 +28,11 @@ struct WorkoutReview: View {
             VStack(alignment: .leading, spacing: DesignTokens.xl) {
                 header
 
-                if row.hasHyroxMetadata {
-                    if let segments, !segments.isEmpty {
-                        segmentSection(segments)
-                        totalsSection(segments)
-                    } else {
-                        unavailableSegments
-                    }
+                if let segments, !segments.isEmpty {
+                    segmentSection(segments)
+                    totalsSection(segments)
+                } else if row.hasHyroxMetadata {
+                    unavailableSegments
                 } else {
                     noMetadata
                 }
@@ -102,7 +110,7 @@ struct WorkoutReview: View {
                 VStack(alignment: .leading, spacing: DesignTokens.xs) {
                     metric(
                         label: "DURATION",
-                        value: Self.durationText(segment.duration),
+                        value: segment.duration.map(Self.durationText) ?? "—",
                         category: .derived
                     )
                     Text(segment.durationSource)
@@ -134,9 +142,10 @@ struct WorkoutReview: View {
         kind: ReviewSegment.Kind,
         segments: [ReviewSegment]
     ) -> some View {
-        let total = segments
-            .filter { $0.kind == kind }
-            .reduce(into: TimeInterval.zero) { $0 += $1.duration }
+        let matchingSegments = segments.filter { $0.kind == kind }
+        let durations = matchingSegments.compactMap(\.duration)
+        let hasUnknownDuration = durations.count != matchingSegments.count
+        let total = durations.reduce(TimeInterval.zero, +)
 
         return HStack(alignment: .top, spacing: DesignTokens.m) {
             Image(systemName: kind.icon)
@@ -146,10 +155,14 @@ struct WorkoutReview: View {
                 .font(DesignTokens.body)
             Spacer()
             VStack(alignment: .trailing, spacing: DesignTokens.xs) {
-                Text(Self.durationText(total))
+                Text(hasUnknownDuration ? "—" : Self.durationText(total))
                     .font(DesignTokens.data)
                 categoryMarker(.derived)
-                Text("FROM MARKED TIMES")
+                Text(
+                    hasUnknownDuration
+                        ? "INCOMPLETE — A SEGMENT END WAS NEVER RECORDED"
+                        : "FROM MARKED TIMES"
+                )
                     .font(DesignTokens.caption)
                     .foregroundStyle(DesignTokens.caution(for: colourScheme))
             }
@@ -319,10 +332,37 @@ private struct ReviewSegment: Identifiable {
     let name: String
     let kind: Kind
     let startOffset: TimeInterval
-    let duration: TimeInterval
+    let duration: TimeInterval?
     let durationSource: String
 
-    static func parse(_ encoded: String, workoutDuration: TimeInterval) -> [ReviewSegment]? {
+    static func fromEvents(
+        _ events: [WorkoutEventRecord],
+        workoutDuration: TimeInterval
+    ) -> [ReviewSegment] {
+        events.enumerated().compactMap { index, event in
+            guard let name = event.metadata["HYROXSegmentName"],
+                  let kind = Kind(name: name),
+                  event.startOffset.isFinite,
+                  event.duration.isFinite else {
+                return nil
+            }
+
+            let segmentEndOffset = event.startOffset + event.duration
+            let endsWithWorkout = abs(segmentEndOffset - workoutDuration) <= 1
+            return ReviewSegment(
+                id: index,
+                name: name,
+                kind: kind,
+                startOffset: event.startOffset,
+                duration: event.duration,
+                durationSource: endsWithWorkout
+                    ? "FROM MARKED + MEASURED"
+                    : "FROM TWO MARKED TIMES"
+            )
+        }
+    }
+
+    static func parse(_ encoded: String) -> [ReviewSegment]? {
         let entries = encoded.split(separator: ";", omittingEmptySubsequences: false)
         var marks: [(name: String, offset: TimeInterval)] = []
 
@@ -346,16 +386,17 @@ private struct ReviewSegment: Identifiable {
                 return nil
             }
             let hasNextMark = marks.indices.contains(index + 1)
-            let endOffset = hasNextMark ? marks[index + 1].offset : workoutDuration
             return ReviewSegment(
                 id: index,
                 name: mark.name,
                 kind: kind,
                 startOffset: mark.offset,
-                duration: endOffset - mark.offset,
+                duration: hasNextMark
+                    ? marks[index + 1].offset - mark.offset
+                    : nil,
                 durationSource: hasNextMark
                     ? "FROM TWO MARKED TIMES"
-                    : "FROM MARKED + MEASURED"
+                    : "SEGMENT END WAS NEVER RECORDED"
             )
         }
     }
