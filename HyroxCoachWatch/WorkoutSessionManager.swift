@@ -83,7 +83,10 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
         }
     }
 
-    func end(metadata: [String: String]? = nil) {
+    func end(
+        metadata: [String: String]? = nil,
+        boundaries: [ProtocolMachine.SegmentBoundary] = []
+    ) {
         guard let session, let builder, !isEnding else {
             latestResult = self.session == nil ? "No workout session to end" : latestResult
             return
@@ -111,6 +114,63 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
             metadata?[HKMetadataKeyWorkoutBrandName] = "HYROX"
         }
 
+        let events = boundaries.map { boundary in
+            HKWorkoutEvent(
+                type: .segment,
+                dateInterval: DateInterval(start: boundary.start, end: boundary.end),
+                metadata: [
+                    "HYROXSegmentName": boundary.name,
+                    "HYROXSegmentIndex": String(boundary.index)
+                ]
+            )
+        }
+
+        guard !events.isEmpty else {
+            attachMetadata(
+                metadata,
+                builder: builder,
+                endDate: endDate,
+                eventResult: "segment events attached (0)"
+            )
+            return
+        }
+
+        let eventCount = events.count
+        builder.addWorkoutEvents(events) { [weak self] success, error in
+            Task { @MainActor in
+                guard let self else { return }
+                if success {
+                    let eventResult = "segment events attached (\(eventCount))"
+                    self.latestResult = "Segment events attached (\(eventCount)); attaching metadata…"
+                    AppLog.workout.info("\(AppLog.stamp(), privacy: .public) E1.2 segment events attached count=\(eventCount, privacy: .public)")
+                    self.attachMetadata(
+                        metadata,
+                        builder: builder,
+                        endDate: endDate,
+                        eventResult: eventResult
+                    )
+                } else {
+                    let message = error?.localizedDescription ?? "unknown error"
+                    let eventResult = "segment events not attached (\(eventCount)): \(message)"
+                    self.latestResult = "Segment event attach failed (\(eventCount)): \(message); finishing workout…"
+                    AppLog.workout.error("\(AppLog.stamp(), privacy: .public) E1.2 segment event attach failed count=\(eventCount, privacy: .public): \(message, privacy: .public)")
+                    self.attachMetadata(
+                        metadata,
+                        builder: builder,
+                        endDate: endDate,
+                        eventResult: eventResult
+                    )
+                }
+            }
+        }
+    }
+
+    private func attachMetadata(
+        _ metadata: [String: String]?,
+        builder: HKLiveWorkoutBuilder,
+        endDate: Date,
+        eventResult: String
+    ) {
         if let metadata, !metadata.isEmpty {
             let keyCount = metadata.count
             builder.addMetadata(metadata) { [weak self] success, error in
@@ -122,7 +182,8 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
                             builder: builder,
                             endDate: endDate,
                             metadataKeyCount: keyCount,
-                            metadataError: nil
+                            metadataError: nil,
+                            eventResult: eventResult
                         )
                     } else {
                         let message = error?.localizedDescription ?? "unknown error"
@@ -132,7 +193,8 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
                             builder: builder,
                             endDate: endDate,
                             metadataKeyCount: keyCount,
-                            metadataError: message
+                            metadataError: message,
+                            eventResult: eventResult
                         )
                     }
                 }
@@ -142,7 +204,8 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
                 builder: builder,
                 endDate: endDate,
                 metadataKeyCount: 0,
-                metadataError: nil
+                metadataError: nil,
+                eventResult: eventResult
             )
         }
     }
@@ -151,7 +214,8 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
         builder: HKLiveWorkoutBuilder,
         endDate: Date,
         metadataKeyCount: Int,
-        metadataError: String?
+        metadataError: String?,
+        eventResult: String
     ) {
         let metadataResult: String
         if let metadataError {
@@ -166,7 +230,7 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 guard success else {
-                    self.latestResult = "End collection failed: \(error?.localizedDescription ?? "unknown error"); \(metadataResult)"
+                    self.latestResult = "End collection failed: \(error?.localizedDescription ?? "unknown error"); \(eventResult); \(metadataResult)"
                     AppLog.workout.error("\(AppLog.stamp(), privacy: .public) E1.2 end collection failed: \(error?.localizedDescription ?? "unknown error", privacy: .public)")
                     self.cleanUpSession()
                     return
@@ -175,14 +239,14 @@ final class WorkoutSessionManager: NSObject, ObservableObject {
                 AppLog.workout.info("\(AppLog.stamp(), privacy: .public) E1.2 builder collection ended")
                 do {
                     if let workout = try await builder.finishWorkout() {
-                        self.latestResult = "Finished UUID \(workout.uuid.uuidString), duration \(String(format: "%.1f", workout.duration))s; \(metadataResult)"
+                        self.latestResult = "Finished UUID \(workout.uuid.uuidString), duration \(String(format: "%.1f", workout.duration))s; \(eventResult); \(metadataResult)"
                         AppLog.workout.info("\(AppLog.stamp(), privacy: .public) E1.2 workout finished UUID=\(workout.uuid.uuidString, privacy: .public) duration=\(workout.duration)")
                     } else {
-                        self.latestResult = "Finish failed: no workout returned; \(metadataResult)"
+                        self.latestResult = "Finish failed: no workout returned; \(eventResult); \(metadataResult)"
                         AppLog.workout.error("\(AppLog.stamp(), privacy: .public) E1.2 finish failed: no workout returned")
                     }
                 } catch {
-                    self.latestResult = "Finish failed: \(error.localizedDescription); \(metadataResult)"
+                    self.latestResult = "Finish failed: \(error.localizedDescription); \(eventResult); \(metadataResult)"
                     AppLog.workout.error("\(AppLog.stamp(), privacy: .public) E1.2 finish failed: \(error.localizedDescription, privacy: .public)")
                 }
                 self.cleanUpSession()

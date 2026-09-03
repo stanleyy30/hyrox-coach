@@ -62,10 +62,13 @@ struct ContentView: View {
                             workoutManager.end(
                                 metadata: machine.healthKitMetadata(
                                     sessionStart: sessionStart
-                                )
+                                ),
+                                boundaries: machine.segmentBoundaries()
                             )
                         } else {
-                            workoutManager.end()
+                            workoutManager.end(
+                                boundaries: machine.segmentBoundaries()
+                            )
                         }
                     } else {
                         workoutManager.start(activityType: .crossTraining)
@@ -79,6 +82,7 @@ struct ContentView: View {
                         ? "Next end: attach metadata (\(machine.completedSegmentCount) segments)"
                         : "Next end: no metadata (\(machine.completedSegmentCount) segments ready)"
                 )
+                Text("Next end: attach \(machine.segmentBoundaries().count) segment events")
                 Text(workoutManager.isStarting ? "Workout starting" : (workoutManager.isRunning ? "Workout running" : "Workout stopped"))
                 elapsedReadout(
                     ticks: workoutManager.tickCount,

@@ -158,6 +158,12 @@ private struct WorkoutDetailView: View {
                 }
             }
 
+            Section("Segment sources") {
+                Text(row.segmentSourceAgreement)
+                    .font(.headline)
+                    .textSelection(.enabled)
+            }
+
             Section("Workout events") {
                 Text(row.eventSummary)
                     .font(.headline)

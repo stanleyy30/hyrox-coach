@@ -53,6 +53,66 @@ struct WorkoutRow: Identifiable {
         metadata["HYROXSegments"]?.count
     }
 
+    var segmentSourceAgreement: String {
+        let segmentEvents = events.filter { event in
+            event.typeName == "segment" && event.metadata["HYROXSegmentName"] != nil
+        }
+        let segmentString = metadata["HYROXSegments"]
+
+        if segmentString == nil && segmentEvents.isEmpty {
+            return "NEITHER — no HYROX segment string or events"
+        }
+        if segmentString == nil {
+            return "EVENTS ONLY — \(segmentEvents.count) segment event(s)"
+        }
+
+        guard let segmentString else {
+            return "DISAGREE — HYROXSegments could not be read"
+        }
+
+        switch Self.parseSegments(from: segmentString) {
+        case let .failure(reason):
+            return "DISAGREE — \(reason.reason)"
+        case let .success(stringSegments):
+            if segmentEvents.isEmpty {
+                return "STRING ONLY — \(stringSegments.count) string entr\(stringSegments.count == 1 ? "y" : "ies")"
+            }
+
+            guard stringSegments.count == segmentEvents.count else {
+                return "DISAGREE — counts: string \(stringSegments.count), events \(segmentEvents.count)"
+            }
+
+            for (index, pair) in zip(stringSegments, segmentEvents).enumerated() {
+                let position = index + 1
+                let stringSegment = pair.0
+                let event = pair.1
+
+                let eventName = event.metadata["HYROXSegmentName"] ?? ""
+
+                guard eventName == stringSegment.name else {
+                    return "DISAGREE — index \(position) names: string “\(stringSegment.name)”, events “\(eventName)”"
+                }
+
+                guard event.startOffset.isFinite else {
+                    return "DISAGREE — event offset at index \(position) could not be parsed as a finite number"
+                }
+
+                let difference = abs(stringSegment.offset - event.startOffset)
+                guard difference <= 0.05 else {
+                    return String(
+                        format: "DISAGREE — index %d offsets: string %.3f seconds, events %.3f seconds; difference %.3f seconds",
+                        position,
+                        stringSegment.offset,
+                        event.startOffset,
+                        difference
+                    )
+                }
+            }
+
+            return "AGREE — \(stringSegments.count) segment(s)"
+        }
+    }
+
     var hyroxFirstAndLastOffsets: String? {
         guard hasHyroxMetadata else { return nil }
         guard let segments = metadata["HYROXSegments"], !segments.isEmpty else {
@@ -146,6 +206,50 @@ struct WorkoutRow: Identifiable {
             offsets.append((value: value, text: String(parts[1])))
         }
         return offsets
+    }
+
+    private static func parseSegments(
+        from segments: String
+    ) -> Result<[(name: String, offset: Double)], SegmentParseError> {
+        guard !segments.isEmpty else { return .success([]) }
+
+        var parsedSegments: [(name: String, offset: Double)] = []
+        for (index, entry) in segments.split(
+            separator: ";",
+            omittingEmptySubsequences: false
+        ).enumerated() {
+            let position = index + 1
+            let parts = entry.split(
+                separator: "@",
+                maxSplits: 1,
+                omittingEmptySubsequences: false
+            )
+
+            guard parts.count == 2 else {
+                return .failure(
+                    SegmentParseError(
+                        reason: "string entry at index \(position) could not be parsed as name@offset"
+                    )
+                )
+            }
+            guard !parts[0].isEmpty else {
+                return .failure(
+                    SegmentParseError(reason: "string name at index \(position) is empty")
+                )
+            }
+            guard !parts[1].isEmpty,
+                  let offset = Double(parts[1]),
+                  offset.isFinite else {
+                return .failure(
+                    SegmentParseError(
+                        reason: "string offset at index \(position) could not be parsed as a finite number: “\(parts[1])”"
+                    )
+                )
+            }
+
+            parsedSegments.append((name: String(parts[0]), offset: offset))
+        }
+        return .success(parsedSegments)
     }
 
     private static func rawOffsetText(from entry: Substring) -> String {
@@ -407,6 +511,9 @@ final class WorkoutHistory: ObservableObject {
         AppLog.health.info(
             "[\(AppLog.stamp(), privacy: .public)] Workout events; workout: \(row.uuid.uuidString, privacy: .public); count and types: \(row.eventSummary, privacy: .public)"
         )
+        AppLog.health.info(
+            "[\(AppLog.stamp(), privacy: .public)] Segment source agreement; workout: \(row.uuid.uuidString, privacy: .public); verdict: \(row.segmentSourceAgreement, privacy: .public)"
+        )
 
         return row
     }
@@ -499,6 +606,10 @@ final class WorkoutHistory: ObservableObject {
         }
         return "\(seconds)s"
     }
+}
+
+private struct SegmentParseError: Error {
+    let reason: String
 }
 
 private enum HeartRateQueryError: LocalizedError {

@@ -6,6 +6,14 @@ import OSLog
 
 @MainActor
 final class ProtocolMachine: ObservableObject {
+    // Return plain values because HealthKit types are not permitted in this file.
+    struct SegmentBoundary {
+        let index: Int
+        let name: String
+        let start: Date
+        let end: Date
+    }
+
     @Published private(set) var report = ""
     @Published private(set) var restoreReport = "Checking persisted state…"
     @Published private(set) var diskReport = "Disk not inspected yet."
@@ -43,6 +51,33 @@ final class ProtocolMachine: ObservableObject {
 
     var completedSegmentCount: Int {
         state.completedSegments.count
+    }
+
+    func segmentBoundaries() -> [SegmentBoundary] {
+        state.completedSegments.enumerated().compactMap { offset, segment in
+            let end: Date?
+            if state.completedSegments.indices.contains(offset + 1) {
+                end = state.completedSegments[offset + 1].startedAt
+            } else {
+                end = segment.endedAt
+            }
+
+            guard let end else {
+                AppLog.workout.error("\(AppLog.stamp(), privacy: .public) HYROX segment event omitted index=\(offset + 1, privacy: .public): no recorded end")
+                return nil
+            }
+            guard end > segment.startedAt else {
+                AppLog.workout.error("\(AppLog.stamp(), privacy: .public) HYROX segment event omitted index=\(offset + 1, privacy: .public): end is not after start")
+                return nil
+            }
+
+            return SegmentBoundary(
+                index: offset + 1,
+                name: Self.segmentDescription(segment),
+                start: segment.startedAt,
+                end: end
+            )
+        }
     }
 
     func healthKitSegmentsCharacterCount(sessionStart: Date) -> Int {
