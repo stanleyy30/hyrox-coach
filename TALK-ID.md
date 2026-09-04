@@ -53,8 +53,9 @@ Aplikasi saya mencatat istirahat selama **2,03 detik.** Itu mustahil.
 
 Selama ini saya memperlakukan semua angka saya seolah sama kuatnya. Ternyata tidak. Ada empat jenis:
 
-| **MEASURED** | Direkam sendiri oleh jam — detak jantung, kalori, total waktu |
+| Jenis | Artinya |
 |---|---|
+| **MEASURED** | Direkam sendiri oleh jam — detak jantung, kalori, total waktu |
 | **MARKED** | Ada manusia yang menekan tombol — semua batas antar station |
 | **DERIVED** | Dihitung dari keduanya — durasi tiap station |
 | **UNSUPPORTED** | Datanya memang tidak bisa menjawabnya |

@@ -53,8 +53,9 @@ My app recorded a rest of **2.03 seconds.** That is impossible.
 
 I had been treating all my numbers as equally solid. They are not. There are four kinds:
 
-| **MEASURED** | The watch recorded it alone — heart rate, energy, total time |
+| Kind | What it means |
 |---|---|
+| **MEASURED** | The watch recorded it alone — heart rate, energy, total time |
 | **MARKED** | A human pressed a button — every station boundary |
 | **DERIVED** | Worked out from those — every station duration |
 | **UNSUPPORTED** | The data cannot answer it at all |
