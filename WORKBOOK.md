@@ -1664,6 +1664,8 @@ The rule that was already written down and not applied: *a tool's output is evid
 
 **The durability question is still worth asking, but it is now a question rather than a finding.** Whether an app's HealthKit samples are removed when the app is deleted is genuinely unknown and matters to the L4 decision, which assumed the record persists. It has simply not been demonstrated, and this episode did not demonstrate it.
 
+> **ANSWERED 2026-09-04. The workouts survive.** The app was uninstalled and reinstalled into a fresh container; the 31 August and 1 September sessions were still in Apple's Health app. Health was checked before the reinstalled app was opened, because after a fresh install HealthKit authorisation is reset and this app cannot tell "deleted" from "not permitted to read" — both return empty. See the L4 decision record, where the fourth risk is now closed.
+
 The risk entry in `design/L4-transport-decision.md` has been corrected to say so: an open question to be tested deliberately, not an observed failure.
 
 **Also unchanged and worth keeping:** the instrument reported *"Query succeeded: 20 workout(s) found"* while returning none of this app's workouts. That remains true and remains the tenth instance of the pattern. A successful query says the question was answered, not that the answer is complete. It is the reason the wrong conclusion was available to reach.

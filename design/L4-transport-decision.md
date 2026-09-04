@@ -106,4 +106,12 @@ What remains is a genuine open question that this episode did not answer.
 
 **This is also a reversal condition.** If it is confirmed that app deletion removes the workouts, the product needs its own durable store — not to move the data, which HealthKit does well, but to survive the app being removed and reinstalled. That is a different problem from transport and would need its own design.
 
-**Status: unconfirmed.** It should be tested deliberately: record a workout, delete the app, reinstall it, and check whether the workout is still in Health.
+**Status: RESOLVED 2026-09-04. The workouts survive deletion of the app.**
+
+Tested deliberately. The app was uninstalled from the iPhone with `devicectl`, then reinstalled into a fresh container (`6BB488A9…`, previously `78486FA0…`, so a genuine new install rather than an upgrade). Apple's Health app was checked **before** the reinstalled app was opened. The sessions from 31 August and 1 September were still present.
+
+**Why Health was the instrument and not this app.** After a fresh install, HealthKit authorisation is reset. Had this app been opened first and shown nothing, three different causes would have produced that identical empty screen: the samples were deleted, read permission was not re-granted, or the samples were temporarily not returned. HealthKit never reports a denied read — it returns an empty result, exactly as it does when no data exists. That is the same blindness recorded in E1.0. This app cannot distinguish "gone" from "not allowed to see it". Health can, because it reads the store directly and does not depend on this app's authorisation. The third cause is not hypothetical either: it is what produced the wrong conclusion on 31 August.
+
+**Consequence for this decision.** The assumption the ADR rested on holds. HealthKit is a durable store, not merely a convenient one, and the record outlives the app that wrote it. The reversal condition below is not met, so the decision not to build a transport stands on tested ground rather than on an assumption.
+
+**The fourth risk is closed.** An athlete's history does not depend on never deleting the app.
