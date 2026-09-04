@@ -1700,6 +1700,12 @@ The rule that was already written down and not applied: *a tool's output is evid
 
 > **ANSWERED 2026-09-04. The workouts survive.** The app was uninstalled and reinstalled into a fresh container; the 31 August and 1 September sessions were still in Apple's Health app. Health was checked before the reinstalled app was opened, because after a fresh install HealthKit authorisation is reset and this app cannot tell "deleted" from "not permitted to read" — both return empty. See the L4 decision record, where the fourth risk is now closed.
 
+> **Second half of the same test, observed the same day.** The data survives the deletion. **The permission does not.** The watch app is embedded in the iOS app, so uninstalling the phone app removed both; on reinstall the watch app could not start a workout session until HealthKit authorisation was granted again.
+>
+> **Why this is a finding and not an inconvenience.** After a reinstall the workouts still exist, and the app cannot see them until the user re-grants access. If the user declines, HealthKit returns an empty list with no error — indistinguishable from having no workouts at all. This is the E1.0 blindness appearing in an ordinary user situation rather than in a test harness. Any athlete who reinstalls the app meets it.
+>
+> **Design consequence, carried to the lo-fi.** The review screen needs a distinct state for *permission not granted* that does not look like *you have no workouts*. The app cannot detect the difference by querying, so the state has to be reached by checking authorisation status directly rather than by inferring it from an empty result.
+
 The risk entry in `design/L4-transport-decision.md` has been corrected to say so: an open question to be tested deliberately, not an observed failure.
 
 **Also unchanged and worth keeping:** the instrument reported *"Query succeeded: 20 workout(s) found"* while returning none of this app's workouts. That remains true and remains the tenth instance of the pattern. A successful query says the question was answered, not that the answer is complete. It is the reason the wrong conclusion was available to reach.
