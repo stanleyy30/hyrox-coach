@@ -65,7 +65,7 @@ Lalu saya menemukan jenis kelima yang tidak ada di rencana mana pun. Aplikasi sa
 
 ## Pola di baliknya
 
-Begitu saya menyadarinya, saya melihatnya di mana-mana. **Sinyal hijau yang menyembunyikan kegagalan — tiga belas kali.**
+Begitu saya menyadarinya, saya melihatnya di mana-mana. **Sinyal hijau yang menyembunyikan kegagalan — tujuh belas kali, dan semuanya sudah saya indeks.**
 
 - Aplikasinya terlihat sehat sementara **79%** waktu race hilang, tanpa crash dan tanpa error.
 - Izin akses melaporkan berhasil padahal pembacaannya diblokir, karena HealthKit mengembalikan daftar kosong, bukan error.

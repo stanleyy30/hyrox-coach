@@ -91,7 +91,7 @@ Six cards. Each is short enough to paste into the canvas and say from memory.
 
 ## The thread through all six
 
-**A green signal hid a failure thirteen times.**
+**A green signal hid a failure seventeen times.**
 
 - The app looked healthy while losing 79% of the race.
 - Permission reported success while reading was actually blocked.

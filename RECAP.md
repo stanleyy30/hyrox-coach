@@ -116,7 +116,7 @@ So I switched to Apple's way. And doing that **immediately exposed a bug** in my
 
 # The one thing that happened over and over
 
-**A green light hid a failure. Thirteen times.**
+**A green light hid a failure. Seventeen times.**
 
 - The app looked fine while losing 79% of the time.
 - Permission looked granted when reading was actually blocked.

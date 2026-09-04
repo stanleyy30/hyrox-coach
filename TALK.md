@@ -65,7 +65,7 @@ Then I found a fifth kind no plan of mine contained. My app printed **"SkiErg"**
 
 ## The pattern underneath
 
-Once I saw it, I saw it everywhere. **A green signal hiding a failure — thirteen times.**
+Once I saw it, I saw it everywhere. **A green signal hiding a failure — seventeen times, and I have indexed every one.**
 
 - The app looked healthy while losing **79%** of the race, with no crash and no error.
 - Permission reported success while reading was blocked, because HealthKit returns an empty list instead of an error.
@@ -112,3 +112,84 @@ I built an undo, and **when I made the mistake mid-race, I did not use it** — 
 And my app still tells the athlete what station they did, instead of asking.
 
 **Thank you.**
+
+---
+---
+
+# Appendix — hard questions, and honest answers
+
+**Not spoken.** This is preparation for questions, including the ones a hostile reader would ask. Where the honest answer is a limitation, it is written as a limitation.
+
+---
+
+### "You barely built anything. Where is the app?"
+
+Two apps, on real hardware. A watch app that records a HYROX race, survives a force quit, and writes structure as `HKWorkoutEvent`s. A phone app that reads them back and labels the provenance of every number. Both signed, installed and run on an Apple Watch Ultra 3 and an iPhone 16 Pro Max — never on a simulator.
+
+What I did *not* build is a watch-to-phone transport, and that was a decision with a written record, not an omission.
+
+### "Deciding not to build the biggest task sounds like avoiding work."
+
+It would be, if the decision came first. It came after three measurements: E2.3 showed offsets remove reconciliation entirely, E3.2 showed custom metadata crosses on its own, E4.0 showed a full-length race payload — 25 segments, 601 characters — crosses without truncation.
+
+The decision record at `design/L4-transport-decision.md` lists the reversal conditions. If any of them turn out to hold, the decision flips. That is what separates a decision from an excuse.
+
+### "Two of your conclusions were wrong. Why should I trust the others?"
+
+Because you can see both. B1 and B2 in the evidence index are my errors, retracted **in place**, with the original wrong text kept above the retraction.
+
+If I had removed them you would have no way to audit my reasoning. The fact that the record contains its own corrections is the reason to trust the rest of it — not a reason to doubt it.
+
+### "How do I know the predictions were really written before the tests?"
+
+Git history. Every prediction is a commit that precedes the commit carrying its result. The workbook rule is stated at the top of the file: a prediction is never edited after the test runs.
+
+That is checkable, and it is the only reason the wrong predictions are worth anything.
+
+### "Your app loses 1.2% of the race. That is not accurate enough."
+
+It does not. That figure measures how often the app was **allowed to run**, not the accuracy of anything recorded. Every time value in the product path is a subtraction between two timestamps — `Date().timeIntervalSince(...)` — and `ProtocolMachine` contains no tick counting at all.
+
+The 1.2% comes from a counter built deliberately to measure suspension. The recorded race has never carried any drift, and since 2026-09-04 the on-screen clock is rendered by the system, so the display carries none either.
+
+### "Why not use WorkoutKit? Apple built it for this."
+
+I evaluated it. `CustomWorkout` with a `displayName` would show the name HYROX, and would replace my live screens with Apple's interval interface — the state machine, the advance control and the correction flow all go away.
+
+One metadata key achieved the same naming while keeping all of it. Apple's Health app now displays the workout as HYROX. The trade was one line of metadata against the entire live experience.
+
+### "Sample size. One athlete, a handful of sessions."
+
+Correct, and it limits some claims and not others.
+
+**Not limited:** the platform behaviours. 79% loss without a session, recovery not being idempotent, atomicity across three injected crash points, metadata crossing at full race length. These are properties of watchOS and HealthKit, reproducible by anyone.
+
+**Limited:** anything about how athletes behave. That a tired person mistaps is evidenced by one person mistapping once. It is a real observation and it is not a study.
+
+### "One watch, one phone, one OS version."
+
+True, and stated as a risk in the L4 decision record. Nothing here has been tested across watchOS versions, on older hardware, or on a watch not paired to its own phone. A 90-minute session has also never been run end to end; the longest real session was 5 minutes 11 seconds, and the full race was seeded rather than performed.
+
+### "The 2.03-second rest — why not just debounce the button?"
+
+Debouncing hides it. If two presses 0.333 seconds apart are silently collapsed, the record shows one clean mark and nothing indicates a human was uncertain there.
+
+That would create a value that reads as MARKED but was actually manufactured — the exact dishonesty the taxonomy exists to prevent. The design now surfaces it in review, states the evidence, and records that a correction was made. Apple's own Workout app does debounce nothing and flags nothing, so neither approach is the industry answer yet.
+
+### "Isn't the four-category taxonomy just labelling?"
+
+It changed the code. `WorkoutReview` withholds `FROM MARKED + MEASURED` unless the final segment genuinely ends with the workout. `segmentSourceAgreement` reports how many durations it compared and names the one it skipped. The empty state on iOS refuses to claim there are no workouts, because a refused read and an empty store are indistinguishable.
+
+Each of those is a sentence the app is no longer allowed to say.
+
+### "What did you actually learn, as opposed to what the tools did?"
+
+The transferable thing is a habit, and it is testable on me: I now write down what I expect before I run anything, and I treat a passing result as a claim about the test rather than about the world.
+
+The evidence that it took is that five of the seventeen indexed failures were found **inside instruments I had built to catch that exact failure** — and I kept finding them, including two on the last day, because I was looking.
+
+### "Why is the count seventeen when your earlier drafts said eleven?"
+
+Because the earlier figures were incremented, never enumerated. The workbook names a "third", a "tenth" and a "twelfth" instance and never names an eleventh.
+
+Building `EVIDENCE-INDEX.md` produced an auditable figure for the first time. The claim was right in shape and wrong in size, and it was wrong for exactly the reason the index is about: it had never been checked.
