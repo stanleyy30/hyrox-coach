@@ -434,6 +434,14 @@ The system renders that clock, not the app. It continues smoothly while the app 
 
 **Conclusion. Recorded times already carry no dilation. Displayed times need not carry any either.**
 
+**Confirmed on device 2026-09-04.** `Text(timerInterval:)` was added to the watch app as a fourth readout beside the tick counter, and a workout was run with a deliberate wrist-down interval. Observed: **`By ticks` fell behind; `By date` and `By system` both stayed correct.**
+
+This is a qualitative observation — the three figures were read off the wrist, not captured to the log — so it is recorded as direction confirmed, not as a measured gap. The measured figures remain the ones from E1.1 and E1.2.
+
+**What it demonstrates.** The system-rendered clock keeps time correctly across an interval in which the app's own timer demonstrably did not fire. It therefore needs no execution to stay accurate, which is exactly the property the display requires.
+
+**It also makes L1 visible in one screen.** The tick counter drifting away from two correct clocks, live on the wrist, shows the finding more directly than the percentages do. Kept in the app for that reason as well as for the display fix.
+
 ---
 
 ## Prediction tally
