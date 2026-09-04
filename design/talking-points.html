@@ -327,6 +327,38 @@
   .plate .say { font-size: 14.5px; color: var(--ink); }
   .wide .shot { min-height: 0; }
 
+  .readouts {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .readout {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .readout .screen {
+    background: #0B0F15;
+    color: #E8EEF6;
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-family: var(--data);
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  .readout .screen b { color: var(--accent); font-weight: 600; }
+  .readout .src {
+    font-family: var(--data);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .readout .say { font-size: 14.5px; color: var(--ink); }
+
   .pull {
     font-family: var(--display);
     font-weight: 700;
@@ -550,6 +582,48 @@
           <span class="say"><span class="mono">HKWorkoutBrandName: HYROX</span> &mdash; the key that made Apple&rsquo;s own Health app name the workout.</span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- 8b -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">4 &middot; Cycle 2, on the wrist</div>
+      <h2>Two findings I could only get by breaking things.</h2>
+      <div class="readouts">
+        <div class="readout">
+          <div class="screen">CALL 1: recovered
+(state: running;
+startDate: 24 Aug 2026
+at 9.29.49)
+
+CALL 2: error: Task server
+endpoint for 'AE606960&hellip;'
+already exists (for instance
+'472919D3&hellip;')
+
+<b>VERDICT: DIFFERENT</b></div>
+          <span class="src">Watch readout &middot; E2.0b &middot; transcribed</span>
+          <span class="say">Call 1 recovered. Call 2 failed <strong>against call 1&rsquo;s own session.</strong> Recovery is not idempotent &mdash; and that solved the mystery Cycle&nbsp;1 had left open.</span>
+        </div>
+        <div class="readout">
+          <div class="screen">E2.2b Inspect disk
+
+<b>Real file: present and
+valid (1869 bytes)</b>
+Temp file: absent
+
+&mdash;
+
+E2.2 Persistence
+Restored Run 2; state began
+36.0s ago; 4 segments
+complete.</div>
+          <span class="src">Watch readout &middot; E2.2 / E2.2b &middot; transcribed</span>
+          <span class="say">Killed deliberately mid-save, at three separate points. <strong>Nothing half-written ever survived</strong>, and the elapsed clock carried through the interval the process did not exist for.</span>
+        </div>
+      </div>
+      <p class="quiet">These two are transcribed from the watch rather than shown as screenshots &mdash; the photographs live on the device, not in this deck.</p>
     </div>
   </section>
 
