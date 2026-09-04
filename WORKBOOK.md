@@ -400,6 +400,40 @@ Cause: the E1.2 workout was **still running** and its session manager still held
 
 Two E1.2 readings taken 481 s apart lost 5.0 s between them (1.04%), so the shortfall is **proportional to elapsed time, not a one-off start-up cost**. Extrapolated, a ~90-minute HYROX race would lose roughly **65 seconds** to tick-counting.
 
+### What these percentages do and do not mean — checked in code 2026-09-04
+
+**They measure how often the app was allowed to run. They do not measure the accuracy of any recorded time.** Stated carelessly, "the app loses 1.23%" reads as though the race record drifts. It does not. The two numbers describe execution frequency, and nothing else.
+
+Every time value in the product path is a timestamp subtraction, not a count:
+
+```swift
+let elapsed = Date().timeIntervalSince(state.stateStartedAt)
+let duration = segment.endedAt.timeIntervalSince(segment.startedAt)
+```
+
+`ProtocolMachine` contains no tick counting anywhere. **The recorded race has zero time dilation and never had any.**
+
+The 1.23% belongs to the instrument, not the product. `BackgroundProbe` and `WorkoutSessionManager` each publish two figures deliberately, side by side:
+
+| | How it is produced | Dilates? |
+|---|---|---|
+| `elapsedByTicks` | Counts timer firings | **Yes** — watchOS coalesces timers |
+| `elapsedByDate` | Subtracts two timestamps | **No** |
+
+E1.2 existed to compare them. The gap between them *is* the finding: it is how the survival of the process was measured. Reading it as an error in the race record inverts what the experiment did.
+
+**What dilation genuinely remains: display refresh, and it is cosmetic.** When watchOS coalesces timers the on-screen number updates every two or three seconds instead of every second. The value is correct whenever it refreshes; it simply refreshes late, and looks frozen.
+
+**This is removable for one line, and belongs in the lo-fi design:**
+
+```swift
+Text(timerInterval: startDate...Date.distantFuture)
+```
+
+The system renders that clock, not the app. It continues smoothly while the app is not executing at all — no timer, no coalescing, no visible stutter.
+
+**Conclusion. Recorded times already carry no dilation. Displayed times need not carry any either.**
+
 ---
 
 ## Prediction tally
