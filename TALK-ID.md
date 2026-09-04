@@ -112,3 +112,84 @@ Saya sudah membuat fitur undo, dan **waktu saya benar-benar melakukan kesalahan 
 Dan aplikasi saya masih memberi tahu atletnya station apa yang dia lakukan, bukan bertanya.
 
 **Terima kasih.**
+
+---
+---
+
+# Lampiran — pertanyaan sulit, dan jawaban jujurnya
+
+**Tidak diucapkan.** Ini persiapan untuk sesi tanya jawab, termasuk pertanyaan yang akan diajukan orang yang paling kritis. Kalau jawaban jujurnya adalah sebuah keterbatasan, ditulis sebagai keterbatasan.
+
+---
+
+### "Kamu hampir tidak membangun apa-apa. Mana aplikasinya?"
+
+Dua aplikasi, di perangkat asli. Aplikasi watch yang merekam race HYROX, bertahan saat dimatikan paksa, dan menulis struktur sebagai `HKWorkoutEvent`. Aplikasi iPhone yang membacanya kembali dan menandai asal setiap angka. Keduanya di-sign, di-install, dan dijalankan di Apple Watch Ultra 3 dan iPhone 16 Pro Max — tidak pernah di simulator.
+
+Yang **tidak** saya bangun adalah jalur pengiriman data dari watch ke iPhone, dan itu keputusan yang tercatat, bukan sesuatu yang terlewat.
+
+### "Memutuskan tidak mengerjakan bagian terbesar terdengar seperti menghindari kerja."
+
+Memang begitu, kalau keputusannya datang lebih dulu. Keputusannya datang setelah tiga pengukuran: E2.3 menunjukkan offset menghapus kebutuhan rekonsiliasi sepenuhnya, E3.2 menunjukkan metadata saya ikut menyeberang sendiri, E4.0 menunjukkan payload race penuh — 25 segmen, 601 karakter — menyeberang tanpa terpotong.
+
+Catatan keputusannya ada di `design/L4-transport-decision.md`, lengkap dengan kondisi yang akan membatalkannya. Kalau salah satu kondisi itu terbukti, keputusannya berbalik. Itu yang membedakan keputusan dari alasan.
+
+### "Dua kesimpulanmu salah. Kenapa saya harus percaya yang lain?"
+
+Justru karena Anda bisa melihat keduanya. B1 dan B2 di indeks bukti adalah kesalahan saya, diralat **di tempatnya**, dengan teks yang salah tetap disimpan di atas ralatnya.
+
+Kalau saya hapus, Anda tidak punya cara memeriksa cara berpikir saya. Fakta bahwa catatannya memuat ralatnya sendiri adalah alasan untuk mempercayai sisanya — bukan alasan untuk meragukannya.
+
+### "Bagaimana saya tahu prediksinya benar-benar ditulis sebelum tesnya?"
+
+Riwayat git. Setiap prediksi adalah commit yang mendahului commit hasilnya. Aturannya tertulis di awal workbook: prediksi tidak pernah diubah setelah tesnya berjalan.
+
+Itu bisa diperiksa, dan itu satu-satunya alasan prediksi yang salah punya nilai.
+
+### "Aplikasimu kehilangan 1,2% waktu race. Itu tidak cukup akurat."
+
+Tidak begitu. Angka itu mengukur seberapa sering aplikasinya **diizinkan berjalan**, bukan akurasi apa pun yang direkam. Setiap nilai waktu di jalur produk adalah pengurangan antara dua timestamp — `Date().timeIntervalSince(...)` — dan `ProtocolMachine` sama sekali tidak menghitung tick.
+
+Angka 1,2% itu berasal dari penghitung yang saya buat khusus untuk mengukur penghentian aplikasi. Rekaman race-nya tidak pernah melenceng, dan sejak 4 September tampilan jamnya dirender oleh sistem, jadi tampilannya pun tidak tertinggal.
+
+### "Kenapa tidak pakai WorkoutKit? Apple membuatnya untuk ini."
+
+Sudah saya evaluasi. `CustomWorkout` dengan `displayName` memang menampilkan nama HYROX, tapi mengganti layar langsung buatan saya dengan antarmuka interval milik Apple — state machine, tombol advance, dan alur koreksinya semua hilang.
+
+Satu metadata key memberi hasil penamaan yang sama sambil mempertahankan semuanya. Aplikasi Health bawaan Apple sekarang menampilkan workout saya sebagai HYROX. Pertukarannya: satu baris metadata melawan keseluruhan pengalaman live.
+
+### "Jumlah sampel. Satu atlet, beberapa sesi saja."
+
+Benar, dan itu membatasi sebagian klaim, tapi tidak semuanya.
+
+**Tidak terbatas:** perilaku platformnya. Kehilangan 79% tanpa workout session, recovery yang tidak idempotent, atomicity di tiga titik crash yang disuntikkan, metadata yang menyeberang pada panjang race penuh. Ini properti watchOS dan HealthKit, bisa direproduksi siapa pun.
+
+**Terbatas:** apa pun tentang perilaku atlet. Bahwa orang kelelahan salah menekan tombol dibuktikan oleh satu orang yang salah menekan satu kali. Itu observasi nyata, dan itu bukan penelitian.
+
+### "Satu watch, satu iPhone, satu versi OS."
+
+Benar, dan itu tercatat sebagai risiko di catatan keputusan L4. Belum ada pengujian lintas versi watchOS, di perangkat lama, atau di watch yang tidak terpasang dengan iPhone-nya sendiri. Sesi 90 menit juga belum pernah dijalankan utuh; sesi nyata terpanjang adalah 5 menit 11 detik, dan race penuhnya diisi data uji, bukan dilakukan.
+
+### "Istirahat 2,03 detik itu — kenapa tidak di-debounce saja tombolnya?"
+
+Debounce menyembunyikannya. Kalau dua tekanan berjarak 0,333 detik digabung diam-diam, rekamannya menampilkan satu tanda yang bersih dan tidak ada apa pun yang menunjukkan bahwa di situ ada manusia yang ragu.
+
+Itu akan menciptakan nilai yang terbaca sebagai MARKED padahal sebenarnya dibuat-buat — persis ketidakjujuran yang ingin dicegah oleh klasifikasi saya. Desainnya sekarang memunculkannya di layar review, menyatakan buktinya, dan mencatat bahwa koreksi telah dilakukan. Aplikasi Workout bawaan Apple tidak melakukan debounce dan tidak menandai apa pun, jadi belum ada pendekatan yang jadi standar industri.
+
+### "Bukankah empat kategori itu cuma pelabelan?"
+
+Itu mengubah kodenya. `WorkoutReview` menahan label `FROM MARKED + MEASURED` kecuali segmen terakhir benar-benar berakhir bersamaan dengan workout-nya. `segmentSourceAgreement` melaporkan berapa durasi yang dibandingkan dan menyebut satu yang dilewati. Tampilan kosong di iOS menolak menyatakan bahwa tidak ada workout, karena izin yang ditolak dan penyimpanan yang kosong tidak bisa dibedakan.
+
+Masing-masing adalah kalimat yang sekarang tidak boleh lagi diucapkan aplikasinya.
+
+### "Apa yang sebenarnya kamu pelajari, dibanding apa yang dikerjakan alatnya?"
+
+Yang bisa dibawa ke mana-mana adalah kebiasaan, dan itu bisa diuji pada saya: sekarang saya menulis dulu apa yang saya harapkan sebelum menjalankan apa pun, dan saya memperlakukan hasil yang lolos sebagai klaim tentang tesnya, bukan tentang kenyataannya.
+
+Buktinya bahwa kebiasaan itu melekat: lima dari tujuh belas kegagalan yang saya indeks ditemukan **di dalam alat yang saya buat sendiri untuk menangkap kegagalan seperti itu** — dan saya terus menemukannya, termasuk dua pada hari terakhir, karena saya memang mencarinya.
+
+### "Kenapa jumlahnya tujuh belas, padahal draf sebelumnya menyebut sebelas?"
+
+Karena angka sebelumnya ditambah terus, tidak pernah dihitung satu per satu. Workbook menyebut instance "ketiga", "kesepuluh", dan "kedua belas", dan tidak pernah menyebut yang kesebelas.
+
+Menyusun `EVIDENCE-INDEX.md` menghasilkan angka yang bisa diperiksa untuk pertama kalinya. Klaimnya benar bentuknya dan salah ukurannya, dan salahnya justru karena alasan yang sama dengan isi indeks itu sendiri: angkanya tidak pernah diperiksa.
