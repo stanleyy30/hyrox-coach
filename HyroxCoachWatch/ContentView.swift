@@ -48,7 +48,8 @@ struct ContentView: View {
                 elapsedReadout(
                     ticks: backgroundProbe.tickCount,
                     elapsedByTicks: backgroundProbe.elapsedByTicks,
-                    elapsedByDate: backgroundProbe.elapsedByDate
+                    elapsedByDate: backgroundProbe.elapsedByDate,
+                    startDate: backgroundProbe.isRunning ? backgroundProbe.startDate : nil
                 )
                 Text(backgroundProbe.latestResult)
             }
@@ -87,7 +88,8 @@ struct ContentView: View {
                 elapsedReadout(
                     ticks: workoutManager.tickCount,
                     elapsedByTicks: workoutManager.elapsedByTicks,
-                    elapsedByDate: workoutManager.elapsedByDate
+                    elapsedByDate: workoutManager.elapsedByDate,
+                    startDate: workoutManager.sessionStartDate
                 )
                 Text(workoutManager.latestHeartRate.map { "Heart rate: \(Int($0.rounded())) bpm" } ?? "Heart rate: —")
                 Text(workoutManager.latestResult)
@@ -253,10 +255,23 @@ struct ContentView: View {
     private func elapsedReadout(
         ticks: Int,
         elapsedByTicks: TimeInterval,
-        elapsedByDate: TimeInterval
+        elapsedByDate: TimeInterval,
+        startDate: Date?
     ) -> some View {
         Text("Ticks: \(ticks)")
         Text("By ticks: \(elapsedByTicks, format: .number.precision(.fractionLength(1)))s")
         Text("By date: \(elapsedByDate, format: .number.precision(.fractionLength(1)))s")
+        // Rendered by the system, not by this app's timer. It keeps counting
+        // smoothly while the app is suspended, so the display carries none of
+        // the coalescing lag the tick counter above exists to measure.
+        if let startDate {
+            HStack {
+                Text("By system:")
+                Text(timerInterval: startDate...Date.distantFuture, countsDown: false)
+                    .monospacedDigit()
+            }
+        } else {
+            Text("By system: —")
+        }
     }
 }

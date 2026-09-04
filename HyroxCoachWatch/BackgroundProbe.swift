@@ -12,8 +12,11 @@ final class BackgroundProbe: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var latestResult = "Not started"
 
+    /// Published so the view can hand it to `Text(timerInterval:)`, which the
+    /// system renders while this app is not executing. See L1's dilation note.
+    @Published private(set) var startDate: Date?
+
     private var timer: Timer?
-    private var startDate: Date?
 
     func start() {
         stop()
