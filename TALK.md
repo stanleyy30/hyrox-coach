@@ -65,7 +65,7 @@ Then I found a fifth kind no plan of mine contained. My app printed **"SkiErg"**
 
 ## The pattern underneath
 
-Once I saw it, I saw it everywhere. **A green signal hiding a failure — eleven times.**
+Once I saw it, I saw it everywhere. **A green signal hiding a failure — thirteen times.**
 
 - The app looked healthy while losing **79%** of the race, with no crash and no error.
 - Permission reported success while reading was blocked, because HealthKit returns an empty list instead of an error.
