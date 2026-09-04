@@ -2023,7 +2023,17 @@ So `AGREE` is **true for what it compared**, and it does not mean the two repres
 - `WorkoutReview` now takes each segment's duration from its event's own `dateInterval`. A segment with no recorded end displays as **unknown** rather than absorbing whatever time remained after the protocol finished. **"FROM MARKED + MEASURED"** is now used only when the segment's end genuinely coincides with the workout's, within one second.
 - The agreement check now compares **durations** as well as count, names and offsets, at the same 0.05 s tolerance. The final segment's duration cannot be derived from the string, so that is **stated in the verdict** rather than skipped silently: `AGREE — 7 segment(s), 6 durations compared; final segment duration skipped because the string has no following entry.`
 
-**Status: E6.2 complete.** Migration verified, both defects fixed. Not yet re-run on device — the fixes are a claim about the code until a session confirms them.
+**Confirmed on device 2026-09-04.** The fixed iOS build was installed on the iPhone and an existing 3 Sep workout was opened. The agreement line now reads:
+
+> `AGREE — 6 durations compared`
+
+That is the fix working. The old line said `AGREE` and meant only that the segment *names* matched; it compared no durations at all and said nothing about it. A reader had no way to tell the difference between "the durations agree" and "the durations were never checked". Both printed the same word.
+
+**What this confirms:** durations are read from each event's own `dateInterval`, compared at 0.05s tolerance, and the count of comparisons is stated. The check now reports its own coverage.
+
+**What is still unconfirmed:** the two remaining changes to the review screen — that per-segment durations render from `event.duration` rather than from the leftover remainder, and that `FROM MARKED + MEASURED` is withheld when the final segment does not end with the workout. Neither has been read off a screen yet.
+
+**Status: E6.2 complete.** Migration verified, both defects fixed, the agreement fix confirmed on device.
 
 ---
 
@@ -2102,5 +2112,5 @@ Every experiment in the Act phase, in order — 19 across five cycles, plus two 
 | E5.2 | 3 confirmed, 1 partial, **1 wrong (favourably)** | One token edit changed both apps. Per-platform sizing took a single conditional block. Proven on the preview surface only — no product screen consumes the tokens yet. |
 | E6.0 | no predictions — investigative | Apple records lap presses as `.marker` with 0.000 duration. Points, not intervals — the same model this project already used, in a first-class API. |
 | E6.1 | no predictions — investigative | Apple's own humidity reported 4900 %, 6000 % and 5900 % across three workouts. MEASURED is the most trustworthy category and still not automatically correct. |
-| E6.2 | no predictions — investigative | Migration verified AGREE on 7 segments. Immediately exposed a review-screen bug the metadata string could not have shown. Both defects fixed. |
+| E6.2 | no predictions — investigative | Migration verified AGREE on 7 segments. Immediately exposed a review-screen bug the metadata string could not have shown. Both defects fixed; the agreement fix confirmed on device 2026-09-04 (`AGREE — 6 durations compared`). |
 | E6.3 | no predictions — investigative | **Apple's Health app displays the workout as HYROX.** Presentation solved with one metadata key; classification is still `.crossTraining`, so rings and energy still count it as cross training. |
