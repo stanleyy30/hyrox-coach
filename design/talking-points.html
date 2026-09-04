@@ -1,0 +1,611 @@
+<title>Predict, Test, Explain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap">
+
+<style>
+  /* Palette lifted from Shared/DesignTokens.swift, so the deck is rendered in
+     the same system as the two apps it describes. */
+  :root {
+    --ground: #F5F7FA;
+    --surface: #FFFFFF;
+    --surface-2: #EDF1F6;
+    --ink: #0D141F;
+    --ink-2: #526173;
+    --rule: #D3DBE4;
+    --accent: #D45420;
+    --accent-soft: #FBEAE1;
+    --positive: #147A47;
+    --caution: #A86300;
+    --critical: #B81F29;
+    --shadow: 0 1px 2px rgba(13,20,31,.06), 0 12px 32px -18px rgba(13,20,31,.30);
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Newsreader", Georgia, "Times New Roman", serif;
+    --data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #080D14;
+      --surface: #171F29;
+      --surface-2: #1F2833;
+      --ink: #F2F7FF;
+      --ink-2: #A1B0C2;
+      --rule: #2C3742;
+      --accent: #F5804F;
+      --accent-soft: #33211A;
+      --positive: #47D680;
+      --caution: #FFB833;
+      --critical: #FF595F;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 32px -18px rgba(0,0,0,.9);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #080D14;
+    --surface: #171F29;
+    --surface-2: #1F2833;
+    --ink: #F2F7FF;
+    --ink-2: #A1B0C2;
+    --rule: #2C3742;
+    --accent: #F5804F;
+    --accent-soft: #33211A;
+    --positive: #47D680;
+    --caution: #FFB833;
+    --critical: #FF595F;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 32px -18px rgba(0,0,0,.9);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .deck {
+    height: 100dvh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .deck { scroll-behavior: auto; }
+  }
+
+  .slide {
+    min-height: 100dvh;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(28px, 5vw, 76px);
+    padding-bottom: clamp(64px, 8vw, 108px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .inner {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vw, 30px);
+  }
+
+  /* ---- type ---- */
+  .eyebrow {
+    font-family: var(--data);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(38px, 7.4vw, 88px);
+    line-height: .98;
+    letter-spacing: -.025em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(28px, 4.4vw, 54px);
+    line-height: 1.04;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(17px, 1.9vw, 21px);
+    letter-spacing: -.01em;
+    margin: 0;
+  }
+  p { margin: 0; max-width: 68ch; }
+  .lede { font-size: clamp(18px, 2.1vw, 24px); line-height: 1.45; color: var(--ink-2); }
+  .lede strong { color: var(--ink); font-weight: 500; }
+  strong { font-weight: 600; }
+  .mono { font-family: var(--data); font-variant-numeric: tabular-nums; }
+  .quiet { color: var(--ink-2); }
+
+  /* ---- title slide ---- */
+  .title-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    font-family: var(--data);
+    font-size: 13px;
+    color: var(--ink-2);
+    padding-top: 6px;
+    border-top: 2px solid var(--accent);
+  }
+
+  /* ---- generic cards ---- */
+  .cards {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: var(--shadow);
+  }
+  .card p { font-size: 15.5px; color: var(--ink-2); }
+
+  /* ---- measurement blocks ---- */
+  .figures {
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .fig {
+    background: var(--surface);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fig .n {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(30px, 4.2vw, 46px);
+    line-height: 1;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .fig .l {
+    font-family: var(--data);
+    font-size: 11.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .fig.hot .n { color: var(--accent); }
+  .fig.bad .n { color: var(--critical); }
+  .fig.good .n { color: var(--positive); }
+
+  /* ---- the before/after signal table ---- */
+  .signals {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15.5px;
+  }
+  .signals th {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-align: left;
+    padding: 0 16px 10px 0;
+    border-bottom: 1px solid var(--rule);
+    font-weight: 500;
+  }
+  .signals td {
+    padding: 13px 16px 13px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .signals tr:last-child td { border-bottom: none; }
+  .signals .said {
+    font-family: var(--data);
+    color: var(--positive);
+    white-space: nowrap;
+    font-size: 14px;
+  }
+  .signals .truth { color: var(--ink); }
+  .scroller { overflow-x: auto; }
+
+  /* ---- taxonomy ---- */
+  .taxo { display: grid; gap: 10px; }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(120px, 160px) 1fr;
+    gap: 6px 22px;
+    align-items: baseline;
+    padding: 13px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .row:first-child { border-top: 2px solid var(--ink); }
+  .row .k {
+    font-family: var(--data);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: .06em;
+  }
+  .row .v { color: var(--ink-2); font-size: 16px; }
+  .k.measured { color: var(--positive); }
+  .k.marked   { color: var(--caution); }
+  .k.derived  { color: var(--ink-2); }
+  .k.unsup    { color: var(--ink-2); }
+  .k.assumed  { color: var(--critical); }
+
+  /* ---- evidence ---- */
+  .evidence {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  .ev {
+    border-left: 2px solid var(--accent);
+    padding: 2px 0 2px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .ev .t { font-family: var(--display); font-weight: 700; font-size: 16px; }
+  .ev .d { font-size: 14.5px; color: var(--ink-2); }
+  .ev .f { font-family: var(--data); font-size: 12.5px; color: var(--ink-2); }
+
+  .pull {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(22px, 3.4vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+    border-left: 3px solid var(--accent);
+    padding-left: clamp(16px, 2vw, 28px);
+    max-width: 24ch;
+    text-wrap: balance;
+  }
+
+  .note {
+    font-family: var(--data);
+    font-size: 13px;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border-radius: 3px;
+    padding: 12px 16px;
+  }
+
+  /* ---- chrome ---- */
+  .hud {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px clamp(16px, 3vw, 28px);
+    background: color-mix(in srgb, var(--ground) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--rule);
+    font-family: var(--data);
+    font-size: 12px;
+    color: var(--ink-2);
+    z-index: 5;
+  }
+  .bar { flex: 1; height: 2px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+  @media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+  .count { font-variant-numeric: tabular-nums; letter-spacing: .05em; }
+  .hint { display: none; }
+  @media (min-width: 760px) { .hint { display: inline; } }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
+<div class="deck" id="deck" tabindex="-1">
+
+  <!-- 0 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Challenge 4 &middot; Learning Review</div>
+      <h1>Predict, test,<br>explain.</h1>
+      <p class="lede">Learning to build connected data tracking across watchOS&nbsp;and&nbsp;iOS &mdash; by writing down what I expected <strong>before</strong> every experiment, and keeping every prediction that turned out wrong.</p>
+      <div class="title-meta">
+        <span>Stanley Young</span>
+        <span>Act phase &middot; 20 Aug &ndash; 4 Sep 2026</span>
+        <span>6 cycles &middot; 24 experiments</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">1 &middot; What I chose to grow</div>
+      <h2>Growth focus statement</h2>
+      <p class="lede">Learn how connected data tracking works across watchOS and iOS &mdash; background execution, data ownership, transport reliability, source of truth &mdash; by producing one complete workout captured on the watch and reviewed on the phone, <strong>together with a log of what I predicted wrongly</strong>, so that I can build a data crossing that holds through screen-off and force-quit, and explain why it holds.</p>
+      <div class="pull">The log of wrong predictions was in the plan from day one.</div>
+      <p class="quiet">I train HYROX: eight runs, eight stations, and the rest between them counts. I wanted an app that records the race on the watch and explains it honestly on the phone.</p>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">2 &middot; My starting point</div>
+      <h2>Zero.</h2>
+      <p class="lede">HealthKit, workout sessions, background execution, moving data between two devices &mdash; I had used <strong>none</strong> of them.</p>
+      <p>So I did not plan to build first. I planned to <strong>predict</strong> first. Before every experiment I wrote what I expected; afterwards, what happened, and the gap between them.</p>
+      <div class="note">Rule, stated at the top of the workbook: a prediction is never edited once the test has run. A wrong prediction is the evidence, not a mistake to hide. Git history shows each prediction committed before its result.</div>
+      <div class="figures">
+        <div class="fig"><span class="n">6</span><span class="l">Cycles</span></div>
+        <div class="fig"><span class="n">24</span><span class="l">Experiments</span></div>
+        <div class="fig"><span class="n">101</span><span class="l">Commits</span></div>
+        <div class="fig"><span class="n">2,172</span><span class="l">Workbook lines</span></div>
+      </div>
+      <p class="quiet">Every experiment ran on an Apple Watch Ultra&nbsp;3 and an iPhone&nbsp;16&nbsp;Pro&nbsp;Max. Never a simulator.</p>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">2 &middot; Where I am now</div>
+      <h2>The largest planned task produced zero code.</h2>
+      <p class="lede">Cycle&nbsp;4 was scheduled as the biggest build in the project: a connection to move data from the watch to the phone. <strong>I built none of it.</strong></p>
+      <div class="cards">
+        <div class="card">
+          <h3>Cycle 3 measured it first</h3>
+          <p>A finished workout reached the phone in under <span class="mono">14&nbsp;s</span> &mdash; phone locked, in another room.</p>
+        </div>
+        <div class="card">
+          <h3>Cycle 4 confirmed the limit</h3>
+          <p>A full-length race &mdash; <span class="mono">25</span> segments, <span class="mono">601</span> characters &mdash; crossed complete. No truncation.</p>
+        </div>
+        <div class="card">
+          <h3>So it became a decision</h3>
+          <p>A written decision record, with the conditions that would reverse it. Not an omission.</p>
+        </div>
+      </div>
+      <p><strong>It is the result I am most confident about</strong>, because I only knew it was safe to delete after measuring it.</p>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">3 &middot; What and how I learned</div>
+      <h2>A rest of 2.03&nbsp;seconds.</h2>
+      <p class="lede">In Cycle&nbsp;5 I stopped tapping through tests at a desk and ran a <strong>real session</strong>. Out of breath, pressing a button on my wrist between stations. At the second rest, I pressed it twice by accident.</p>
+      <div class="figures">
+        <div class="fig"><span class="n mono">24.76<span style="font-size:.5em">s</span></span><span class="l">Roxzone 1</span></div>
+        <div class="fig bad"><span class="n mono">2.03<span style="font-size:.5em">s</span></span><span class="l">Roxzone 2 &mdash; impossible</span></div>
+        <div class="fig good"><span class="n">INTACT</span><span class="l">What my checker reported</span></div>
+      </div>
+      <div class="pull">Every check I had written said the data was fine.</div>
+      <p class="quiet">Timestamps in order. Nothing negative. Everything inside the workout. The check tested completeness, and completeness was never the question.</p>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">3 &middot; What the mistake taught me</div>
+      <h2>Not all numbers are equally true.</h2>
+      <p class="lede">The obvious split is recorded versus calculated. <strong>That split is wrong.</strong> The real one sits inside &ldquo;recorded&rdquo;.</p>
+      <div class="taxo">
+        <div class="row"><span class="k measured">MEASURED</span><span class="v">The device recorded it alone &mdash; heart rate, energy, total time</span></div>
+        <div class="row"><span class="k marked">MARKED</span><span class="v">A human pressed a button &mdash; every station boundary</span></div>
+        <div class="row"><span class="k derived">DERIVED</span><span class="v">Worked out from those &mdash; every station duration</span></div>
+        <div class="row"><span class="k unsup">UNSUPPORTED</span><span class="v">The data cannot answer it at all</span></div>
+        <div class="row"><span class="k assumed">ASSUMED</span><span class="v">A fifth kind, in no plan of mine: the app printed &ldquo;SkiErg&rdquo; when I had done burpees &mdash; because it assumed, and never asked</span></div>
+      </div>
+      <p class="quiet">My total time and my station start time are both timestamps and look identical on screen. One came from a sensor. The other came from a tired person pressing a button.</p>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">3 &middot; The pattern underneath</div>
+      <h2>A green signal hiding a failure. Seventeen times.</h2>
+      <div class="scroller">
+        <table class="signals">
+          <thead>
+            <tr><th style="width:30%">The signal said</th><th>What was actually true</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="said">Running normally</td><td class="truth"><strong>79.4%</strong> of elapsed time was not being counted. No crash, no error.</td></tr>
+            <tr><td class="said">Authorised</td><td class="truth">Read permission was denied. HealthKit returns an empty set, never an error.</td></tr>
+            <tr><td class="said">Build succeeded</td><td class="truth">Missing usage description. Instant termination, before any <span class="mono">catch</span> could run.</td></tr>
+            <tr><td class="said">INTACT</td><td class="truth">Every offset was negative. The check tested completeness, never plausibility.</td></tr>
+            <tr><td class="said">AGREE</td><td class="truth">Segment names matched. <strong>No durations were compared</strong>, and nothing said so.</td></tr>
+            <tr><td class="said">MEASURED</td><td class="truth">Apple&rsquo;s own metadata: <span class="mono">HKWeatherHumidity 4900&nbsp;%</span>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">All seventeen are indexed with workbook line numbers. <strong>Five were produced by instruments built in this project to catch exactly this.</strong> Two were my own reasoning errors, both retracted in place, with the wrong text kept above the retraction.</div>
+      <div class="pull">A passing test only proves what it actually checked.</div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">3 &middot; And then I checked Apple</div>
+      <h2>0.333 seconds apart. Recorded without complaint.</h2>
+      <p class="lede">I pressed the lap button in Apple&rsquo;s own Workout app twice, as fast as I could. It stored both marks. No debounce, no flag, nothing indicating the second was suspect &mdash; <strong>the same failure as my 2.03-second roxzone.</strong></p>
+      <div class="pull">Apple has not solved this either.</div>
+      <p>So the problem I hit is not inexperience. Marking boundaries accurately mid-effort is unsolved on the platform, and solving it properly is a real contribution rather than catching up.</p>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">4 &middot; Learning evidence</div>
+      <h2>What exists, and where.</h2>
+      <div class="figures">
+        <div class="fig hot"><span class="n">2</span><span class="l">Apps on real devices</span></div>
+        <div class="fig"><span class="n">4,094</span><span class="l">Lines of Swift, 18 files</span></div>
+        <div class="fig"><span class="n">101</span><span class="l">Commits, 20 Aug &ndash; 4 Sep</span></div>
+        <div class="fig"><span class="n">2,172</span><span class="l">Workbook lines</span></div>
+      </div>
+      <div class="evidence">
+        <div class="ev">
+          <span class="t">The apps</span>
+          <span class="d">A watch app that records a HYROX race, survives a force quit, and writes structure as <span class="mono">HKWorkoutEvent</span>s. A phone app that labels where every number came from.</span>
+          <span class="f">HyroxCoachWatch/ &middot; HyroxCoach/</span>
+        </div>
+        <div class="ev">
+          <span class="t">The workbook</span>
+          <span class="d">Every prediction before the test, every result after, every gap between &mdash; including two conclusions I had to retract.</span>
+          <span class="f">WORKBOOK.md &middot; 26 scorecard rows</span>
+        </div>
+        <div class="ev">
+          <span class="t">The decision records</span>
+          <span class="d">Three, including the one that says do not build the transport, with reversal conditions and accepted risks.</span>
+          <span class="f">design/L2 &middot; L4 &middot; L5</span>
+        </div>
+        <div class="ev">
+          <span class="t">The evidence index</span>
+          <span class="d">All seventeen instances of the pattern, each with a workbook line reference, so the claim is checkable rather than asserted.</span>
+          <span class="f">EVIDENCE-INDEX.md</span>
+        </div>
+        <div class="ev">
+          <span class="t">The failure log</span>
+          <span class="d">Ten bugs, each with the symptom, the layer it appeared to be in, and the layer the cause was actually in.</span>
+          <span class="f">WORKBOOK.md &middot; running failure log</span>
+        </div>
+        <div class="ev">
+          <span class="t">The lo-fi design</span>
+          <span class="d">Six artboards: one watch screen, five phone screens. Correction and station identity both moved off the wrist.</span>
+          <span class="f">design/HyroxCoach-lofi.sketch</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">4 &middot; Shown live</div>
+      <h2>Three clocks, one of them wrong.</h2>
+      <p class="lede">During a workout the watch shows the same elapsed time computed three ways. Drop your wrist for a minute and <strong>one of them falls behind.</strong></p>
+      <div class="figures">
+        <div class="fig bad"><span class="n">Ticks</span><span class="l">Counts timer firings &mdash; drifts</span></div>
+        <div class="fig good"><span class="n">Date</span><span class="l">Two timestamps &mdash; exact</span></div>
+        <div class="fig good"><span class="n">System</span><span class="l">Rendered by watchOS &mdash; exact</span></div>
+      </div>
+      <p>That one screen is my entire first cycle happening in front of you. It is also the answer to the obvious objection: <strong>the percentages measure how often the app was allowed to run, not the accuracy of anything recorded.</strong> Every time in the race record is a subtraction between two timestamps.</p>
+      <div class="note">And one line of metadata: there is no HYROX workout type in HealthKit, but Apple&rsquo;s own Health app now displays my workout as <strong>HYROX</strong> &mdash; while I keep my own live screens.</div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide">
+    <div class="inner">
+      <div class="eyebrow">Next learning focus</div>
+      <h2>Draw it before building it.</h2>
+      <p class="lede">Everything so far went straight into code. My two worst problems are design problems, and both would have been obvious on paper.</p>
+      <div class="cards">
+        <div class="card">
+          <h3>I built an undo and did not use it</h3>
+          <p>When I mis-tapped mid-race, the control was on a different screen. Correction has moved to the phone review, where there is no time pressure and the evidence is visible.</p>
+        </div>
+        <div class="card">
+          <h3>The app told me what I did</h3>
+          <p>It printed a station name it had never observed. The watch now shows position, not identity &mdash; <span class="mono">STATION 4</span>, planned Ski&nbsp;Erg.</p>
+        </div>
+      </div>
+      <div class="pull">The app recorded when. Only I know what.</div>
+      <p class="quiet">Thank you.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="hud">
+  <span class="count" id="count">01 / 11</span>
+  <span class="bar"><span id="fill"></span></span>
+  <span class="hint">&larr; &rarr; to move</span>
+</div>
+
+<script>
+  (function () {
+    var deck = document.getElementById('deck');
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var count = document.getElementById('count');
+    var fill = document.getElementById('fill');
+    var current = 0;
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    function render(i) {
+      current = i;
+      count.textContent = pad(i + 1) + ' / ' + pad(slides.length);
+      fill.style.width = ((i + 1) / slides.length * 100) + '%';
+    }
+
+    function go(i) {
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      slides[i].scrollIntoView({ block: 'start' });
+      render(i);
+    }
+
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) render(slides.indexOf(e.target));
+        });
+      }, { threshold: 0.55 });
+      slides.forEach(function (s) { io.observe(s); });
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault(); go(current + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault(); go(current - 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault(); go(0);
+      } else if (e.key === 'End') {
+        e.preventDefault(); go(slides.length - 1);
+      }
+    });
+
+    render(0);
+  })();
+</script>
