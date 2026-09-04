@@ -13,10 +13,11 @@ def repl(m):
     missing.append(name)
     return '<span class="missing">awaiting<br>%s</span>' % name
 
+total = len(re.findall(r"\{\{IMG:", src))
 out = re.sub(r'\{\{IMG:([^}]+)\}\}', repl, src)
 dest = "/private/tmp/claude-501/-Users-stanleyyoung-Apple-Challenge-4/c68dbc49-c507-40f5-969d-93d98ef58f57/scratchpad/talking-points.html"
 open(dest, "w").write(out)
-print("embedded:", 6 - len(missing), "of 6")
+print("embedded:", total - len(missing), "of", total)
 if missing:
     print("missing:", ", ".join(missing))
 print("size:", round(len(out)/1024), "KB")
