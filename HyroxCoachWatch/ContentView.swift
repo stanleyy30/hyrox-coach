@@ -1,4 +1,9 @@
-// Cycle L1 on-device controls and readouts for experiments E1.0-E1.3.
+// Cycle L1-L6 on-device controls and readouts.
+//
+// The race screen is the product surface. Everything else is an instrument
+// and lives behind "Instruments", so the first screen is short enough to read
+// at a glance mid-effort. No control has been removed: the experiments still
+// depend on all of them.
 
 import SwiftUI
 import HealthKit
@@ -19,42 +24,128 @@ struct ContentView: View {
     @State private var isShowingSeedFullRaceConfirmation = false
     @State private var seedFullRaceReport = ""
 
+    @Environment(\.colorScheme) private var colourScheme
+
     var body: some View {
+        // Added 2026-09-04. There was no navigation container at all, so the
+        // existing link to the style preview silently did nothing.
+        NavigationStack {
+            List {
+                Section {
+                    NavigationLink {
+                        raceScreen
+                    } label: {
+                        raceSummaryRow
+                    }
+                }
+
+                Section("Instruments") {
+                    instrumentLink("Workout session", "E1.2", destination: workoutScreen)
+                    instrumentLink("HealthKit", "E1.0", destination: healthKitScreen)
+                    instrumentLink("Baseline, no session", "E1.1", destination: baselineScreen)
+                    instrumentLink("Recovery", "E1.3 · E2.0b", destination: recoveryScreen)
+                    instrumentLink("Crash and persistence", "E2.0 · E2.2 · E4.0", destination: persistenceScreen)
+                    instrumentLink("Reconciliation", "E2.3", destination: reconciliationScreen)
+                }
+
+                Section("Design system") {
+                    NavigationLink("Style preview") {
+                        StylePreview()
+                    }
+                }
+            }
+            .navigationTitle("HyroxCoach")
+        }
+    }
+
+    // MARK: - Root rows
+
+    private var raceSummaryRow: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.xs) {
+            Text("RACE")
+                .font(DesignTokens.caption)
+                .foregroundStyle(DesignTokens.accent(for: colourScheme))
+            Text(machine.currentStateDescription)
+                .font(DesignTokens.title)
+                .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
+            Text("\(machine.completedSegmentCount) segments complete")
+                .font(DesignTokens.caption)
+                .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
+        }
+        .padding(.vertical, DesignTokens.xs)
+    }
+
+    @ViewBuilder
+    private func instrumentLink<Destination: View>(
+        _ title: String,
+        _ subtitle: String,
+        destination: Destination
+    ) -> some View {
+        NavigationLink {
+            destination
+        } label: {
+            VStack(alignment: .leading, spacing: DesignTokens.xs) {
+                Text(title)
+                    .font(DesignTokens.body)
+                    .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
+                Text(subtitle)
+                    .font(DesignTokens.caption)
+                    .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
+            }
+        }
+    }
+
+    // MARK: - Race
+
+    private var raceScreen: some View {
         List {
-            Section("E1.0 HealthKit") {
-                Text(healthKitAuth.isAvailable ? "HealthKit available" : "HealthKit unavailable")
-                Button(healthKitAuth.isBusy ? "Working…" : "Request authorization") {
-                    Task { await healthKitAuth.requestAuthorization() }
+            Section {
+                VStack(alignment: .leading, spacing: DesignTokens.s) {
+                    Text(machine.currentStateDescription)
+                        .font(DesignTokens.title)
+                        .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
+                    // System-rendered, so it keeps counting while the app is
+                    // suspended. See L1's note on display dilation.
+                    if let sessionStart = workoutManager.sessionStartDate {
+                        Text(timerInterval: sessionStart...Date.distantFuture, countsDown: false)
+                            .font(DesignTokens.display)
+                            .monospacedDigit()
+                            .foregroundStyle(DesignTokens.accent(for: colourScheme))
+                    } else {
+                        Text("no workout running")
+                            .font(DesignTokens.caption)
+                            .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
+                    }
+                    Text("\(machine.completedSegmentCount) segments complete")
+                        .font(DesignTokens.caption)
+                        .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
                 }
-                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
-                Button("Write + read 1 kcal") {
-                    Task { _ = await healthKitAuth.writeAndReadBackSample() }
-                }
-                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
-                Button("E1.0b Read foreign data") {
-                    Task { _ = await healthKitAuth.readForeignSamples() }
-                }
-                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
-                Text(healthKitAuth.authorizationResult)
-                Text(healthKitAuth.roundTripResult)
-                Text(healthKitAuth.foreignReadResult)
+                .padding(.vertical, DesignTokens.xs)
             }
 
-            Section("E1.1 No session") {
-                Button(backgroundProbe.isRunning ? "Stop baseline" : "Start baseline") {
-                    backgroundProbe.isRunning ? backgroundProbe.stop() : backgroundProbe.start()
-                }
-                Text(backgroundProbe.isRunning ? "Running" : "Stopped")
-                elapsedReadout(
-                    ticks: backgroundProbe.tickCount,
-                    elapsedByTicks: backgroundProbe.elapsedByTicks,
-                    elapsedByDate: backgroundProbe.elapsedByDate,
-                    startDate: backgroundProbe.isRunning ? backgroundProbe.startDate : nil
-                )
-                Text(backgroundProbe.latestResult)
+            Section {
+                Button("Advance") { machine.advance() }
+                Button("Undo") { machine.undo() }
             }
 
-            Section("E1.2 Workout session") {
+            Section {
+                Button("Start protocol") { machine.start() }
+                Button("Reset", role: .destructive) { machine.reset() }
+            }
+
+            Section("Detail") {
+                diagnostic(machine.restoreReport)
+                diagnostic(machine.report)
+            }
+        }
+        .navigationTitle("Race")
+    }
+
+    // MARK: - Instruments
+
+    private var workoutScreen: some View {
+        List {
+            Section {
                 Toggle("Attach HYROX metadata", isOn: $attachHYROXMetadata)
                 Button(workoutManager.isRunning || workoutManager.isEnding ? "End workout" : "Start cross training") {
                     if workoutManager.isRunning || workoutManager.isEnding {
@@ -76,44 +167,127 @@ struct ContentView: View {
                     }
                 }
                 .disabled(workoutManager.isEnding || workoutManager.isStarting)
-                Text(
-                    attachHYROXMetadata &&
-                    workoutManager.sessionStartDate != nil &&
-                    machine.completedSegmentCount > 0
-                        ? "Next end: attach metadata (\(machine.completedSegmentCount) segments)"
-                        : "Next end: no metadata (\(machine.completedSegmentCount) segments ready)"
-                )
-                Text("Next end: attach \(machine.segmentBoundaries().count) segment events")
                 Text(workoutManager.isStarting ? "Workout starting" : (workoutManager.isRunning ? "Workout running" : "Workout stopped"))
+                    .font(DesignTokens.body)
+                    .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
+                Text(workoutManager.latestHeartRate.map { "Heart rate: \(Int($0.rounded())) bpm" } ?? "Heart rate: —")
+                    .font(DesignTokens.body)
+                    .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
+            }
+
+            Section("Elapsed") {
                 elapsedReadout(
                     ticks: workoutManager.tickCount,
                     elapsedByTicks: workoutManager.elapsedByTicks,
                     elapsedByDate: workoutManager.elapsedByDate,
                     startDate: workoutManager.sessionStartDate
                 )
-                Text(workoutManager.latestHeartRate.map { "Heart rate: \(Int($0.rounded())) bpm" } ?? "Heart rate: —")
-                Text(workoutManager.latestResult)
             }
 
-            Section("E1.3 Recovery") {
+            Section("Next end") {
+                diagnostic(
+                    attachHYROXMetadata &&
+                    workoutManager.sessionStartDate != nil &&
+                    machine.completedSegmentCount > 0
+                        ? "Attach metadata (\(machine.completedSegmentCount) segments)"
+                        : "No metadata (\(machine.completedSegmentCount) segments ready)"
+                )
+                diagnostic("Attach \(machine.segmentBoundaries().count) segment events")
+                diagnostic(workoutManager.latestResult)
+            }
+        }
+        .navigationTitle("Workout")
+    }
+
+    private var healthKitScreen: some View {
+        List {
+            Section {
+                Text(healthKitAuth.isAvailable ? "HealthKit available" : "HealthKit unavailable")
+                    .font(DesignTokens.body)
+                    .foregroundStyle(
+                        healthKitAuth.isAvailable
+                            ? DesignTokens.primaryText(for: colourScheme)
+                            : DesignTokens.critical(for: colourScheme)
+                    )
+                Button(healthKitAuth.isBusy ? "Working…" : "Request authorization") {
+                    Task { await healthKitAuth.requestAuthorization() }
+                }
+                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
+                Button("Write + read 1 kcal") {
+                    Task { _ = await healthKitAuth.writeAndReadBackSample() }
+                }
+                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
+                Button("E1.0b Read foreign data") {
+                    Task { _ = await healthKitAuth.readForeignSamples() }
+                }
+                .disabled(healthKitAuth.isBusy || !healthKitAuth.isAvailable)
+            }
+
+            Section("Result") {
+                diagnostic(healthKitAuth.authorizationResult)
+                diagnostic(healthKitAuth.roundTripResult)
+                diagnostic(healthKitAuth.foreignReadResult)
+            }
+        }
+        .navigationTitle("HealthKit")
+    }
+
+    private var baselineScreen: some View {
+        List {
+            Section {
+                Button(backgroundProbe.isRunning ? "Stop baseline" : "Start baseline") {
+                    backgroundProbe.isRunning ? backgroundProbe.stop() : backgroundProbe.start()
+                }
+                Text(backgroundProbe.isRunning ? "Running" : "Stopped")
+                    .font(DesignTokens.body)
+                    .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
+            }
+
+            Section("Elapsed") {
+                elapsedReadout(
+                    ticks: backgroundProbe.tickCount,
+                    elapsedByTicks: backgroundProbe.elapsedByTicks,
+                    elapsedByDate: backgroundProbe.elapsedByDate,
+                    startDate: backgroundProbe.isRunning ? backgroundProbe.startDate : nil
+                )
+            }
+
+            Section("Result") {
+                diagnostic(backgroundProbe.latestResult)
+            }
+        }
+        .navigationTitle("Baseline")
+    }
+
+    private var recoveryScreen: some View {
+        List {
+            Section {
                 Button(recoveryProbe.isRecovering ? "Recovering…" : "Attempt recovery") {
                     Task { _ = await recoveryProbe.attemptRecovery() }
                 }
                 .disabled(recoveryProbe.isRecovering)
-                Text(recoveryProbe.latestResult)
-                Button("E2.0b Recover twice") {
+                diagnostic(recoveryProbe.latestResult)
+            }
+
+            Section("E2.0b Idempotency") {
+                Button("Recover twice") {
                     Task { _ = await recoveryProbe.attemptRecoveryTwice() }
                 }
                 .disabled(recoveryProbe.isRecovering)
-                Button("E2.0b Release session") {
+                Button("Release session") {
                     recoveryProbe.releaseRetainedSession()
                 }
-                Text(recoveryProbe.latestTwiceResult)
+                diagnostic(recoveryProbe.latestTwiceResult)
             }
+        }
+        .navigationTitle("Recovery")
+    }
 
+    private var persistenceScreen: some View {
+        List {
             Section("E2.0 Crash relaunch") {
-                Text(crashProbe.summary)
-                Button("E2.0 Crash now") {
+                diagnostic(crashProbe.summary)
+                Button("Crash now", role: .destructive) {
                     isShowingCrashConfirmation = true
                 }
                 .confirmationDialog(
@@ -130,22 +304,8 @@ struct ContentView: View {
                 }
             }
 
-            Section("E2.2 Persistence") {
-                Text(machine.restoreReport)
-                Text(machine.report)
-                Button("Start protocol") {
-                    machine.start()
-                }
-                Button("Advance") {
-                    machine.advance()
-                }
-                Button("Undo") {
-                    machine.undo()
-                }
-                Button("Reset") {
-                    machine.reset()
-                }
-                Button("E4.0 Seed full race (25 segments)") {
+            Section("E4.0 Full race") {
+                Button("Seed full race (25 segments)") {
                     if workoutManager.isRunning,
                        workoutManager.sessionStartDate != nil {
                         seedFullRaceReport = ""
@@ -173,25 +333,28 @@ struct ContentView: View {
                     Text("This is test data, not a real workout.")
                 }
                 if !seedFullRaceReport.isEmpty {
-                    Text(seedFullRaceReport)
+                    diagnostic(seedFullRaceReport)
                 }
                 if let sessionStart = workoutManager.sessionStartDate {
                     if let offsets = machine.healthKitSegmentOffsetRange(
                         sessionStart: sessionStart
                     ) {
-                        Text("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments); first offset \(offsets.first, format: .number.precision(.fractionLength(3)))s, last offset \(offsets.last, format: .number.precision(.fractionLength(3)))s")
+                        diagnostic("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments); first offset \(offsets.first.formatted(.number.precision(.fractionLength(3))))s, last offset \(offsets.last.formatted(.number.precision(.fractionLength(3))))s")
                     } else {
-                        Text("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments); first offset —, last offset —")
+                        diagnostic("HYROXSegments: \(machine.healthKitSegmentsCharacterCount(sessionStart: sessionStart)) characters (\(machine.completedSegmentCount) segments); first offset —, last offset —")
                     }
                 } else {
-                    Text("HYROXSegments: start workout to calculate (\(machine.completedSegmentCount) segments); first offset —, last offset —")
+                    diagnostic("HYROXSegments: start workout to calculate (\(machine.completedSegmentCount) segments); first offset —, last offset —")
                 }
+            }
+
+            Section("E2.2b Atomicity") {
                 Picker("Crash point", selection: $selectedCrashPoint) {
                     ForEach(StateStore.CrashPoint.allCases, id: \.self) { point in
                         Text(point.rawValue).tag(point)
                     }
                 }
-                Button("E2.2b Save with crash point") {
+                Button("Save with crash point", role: .destructive) {
                     isShowingPersistenceCrashConfirmation = true
                 }
                 .disabled(selectedCrashPoint == .none)
@@ -213,17 +376,22 @@ struct ContentView: View {
                 } message: {
                     Text("This will end the app at \(selectedCrashPoint.rawValue).")
                 }
-                Button("E2.2b Inspect disk") {
+                Button("Inspect disk") {
                     machine.refreshDiskReport()
                 }
-                Text(machine.diskReport)
-                Button("E2.2b Clean temp files") {
+                diagnostic(machine.diskReport)
+                Button("Clean temp files") {
                     machine.cleanUpTempFiles()
                 }
             }
+        }
+        .navigationTitle("Persistence")
+    }
 
-            Section("E2.3 Reconciliation") {
-                Button("E2.3 Attach HK session") {
+    private var reconciliationScreen: some View {
+        List {
+            Section {
+                Button("Attach HK session") {
                     if let start = workoutManager.sessionStartDate {
                         // HKWorkoutSession has no public UUID until the workout is
                         // finished, so identity is carried by the start instant.
@@ -233,22 +401,30 @@ struct ContentView: View {
                         )
                         reconciliationAttachReport = "Attached HK session start \(start.formatted(date: .omitted, time: .standard))."
                     } else {
-                        reconciliationAttachReport = "No workout session is running — start E1.2 first."
+                        reconciliationAttachReport = "No workout session is running — start the workout first."
                     }
                 }
-                Text(reconciliationAttachReport)
-                Button("E2.3 Compare records") {
-                    machine.refreshReconciliation()
-                }
-                Text(machine.reconciliationReport)
+                diagnostic(reconciliationAttachReport)
             }
 
-            Section("Design system") {
-                NavigationLink("Style preview") {
-                    StylePreview()
+            Section {
+                Button("Compare records") {
+                    machine.refreshReconciliation()
                 }
+                diagnostic(machine.reconciliationReport)
             }
         }
+        .navigationTitle("Reconciliation")
+    }
+
+    // MARK: - Shared readouts
+
+    /// Diagnostic text is deliberately quieter than the controls above it. It
+    /// is evidence to read when something is wrong, not the primary surface.
+    private func diagnostic(_ text: String) -> some View {
+        Text(text)
+            .font(DesignTokens.caption)
+            .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
     }
 
     @ViewBuilder
@@ -258,20 +434,39 @@ struct ContentView: View {
         elapsedByDate: TimeInterval,
         startDate: Date?
     ) -> some View {
-        Text("Ticks: \(ticks)")
-        Text("By ticks: \(elapsedByTicks, format: .number.precision(.fractionLength(1)))s")
-        Text("By date: \(elapsedByDate, format: .number.precision(.fractionLength(1)))s")
         // Rendered by the system, not by this app's timer. It keeps counting
         // smoothly while the app is suspended, so the display carries none of
-        // the coalescing lag the tick counter above exists to measure.
+        // the coalescing lag the tick counter below exists to measure. It is
+        // shown first because it is the only one of the three an athlete
+        // should ever be asked to read.
         if let startDate {
             HStack {
-                Text("By system:")
+                Text("By system")
+                    .font(DesignTokens.caption)
+                    .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
+                Spacer()
                 Text(timerInterval: startDate...Date.distantFuture, countsDown: false)
+                    .font(DesignTokens.data)
                     .monospacedDigit()
+                    .foregroundStyle(DesignTokens.accent(for: colourScheme))
             }
         } else {
-            Text("By system: —")
+            readoutRow("By system", "—")
+        }
+        readoutRow("By date", "\(elapsedByDate.formatted(.number.precision(.fractionLength(1))))s")
+        readoutRow("By ticks", "\(elapsedByTicks.formatted(.number.precision(.fractionLength(1))))s")
+        readoutRow("Ticks", "\(ticks)")
+    }
+
+    private func readoutRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(DesignTokens.caption)
+                .foregroundStyle(DesignTokens.secondaryText(for: colourScheme))
+            Spacer()
+            Text(value)
+                .font(DesignTokens.data)
+                .foregroundStyle(DesignTokens.primaryText(for: colourScheme))
         }
     }
 }

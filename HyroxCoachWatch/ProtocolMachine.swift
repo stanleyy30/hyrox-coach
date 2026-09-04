@@ -14,6 +14,9 @@ final class ProtocolMachine: ObservableObject {
         let end: Date
     }
 
+    /// The current state in words. Published so the view can show it without
+    /// reaching into `state`, which stays private.
+    @Published private(set) var currentStateDescription = "Not started"
     @Published private(set) var report = ""
     @Published private(set) var restoreReport = "Checking persisted state…"
     @Published private(set) var diskReport = "Disk not inspected yet."
@@ -444,6 +447,7 @@ final class ProtocolMachine: ObservableObject {
     }
 
     private func refreshReport() {
+        currentStateDescription = Self.kindDescription(state.kind)
         let elapsed = Date().timeIntervalSince(state.stateStartedAt)
         var lines = [
             "Current: \(Self.kindDescription(state.kind))",
