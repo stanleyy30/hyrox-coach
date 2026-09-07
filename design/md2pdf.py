@@ -10,10 +10,10 @@ def render(md):
         if m:
             lvl = len(m.group(1))
             out.append("<h%d>%s</h%d>" % (lvl, inline(m.group(2)), lvl)); i += 1; continue
-        if ln.startswith("> "):
+        if ln.startswith(">"):
             block = []
-            while i < len(lines) and lines[i].startswith("> "):
-                block.append(inline(lines[i][2:])); i += 1
+            while i < len(lines) and lines[i].startswith(">"):
+                block.append(inline(lines[i].lstrip(">").lstrip())); i += 1
             out.append("<blockquote>%s</blockquote>" % "<br>".join(block)); continue
         if ln.startswith("```"):
             i += 1; block = []
@@ -39,7 +39,13 @@ def render(md):
         if ln.strip() == "":
             i += 1; continue
         para = []
+        start = i
         while i < len(lines) and lines[i].strip() and not re.match(r'^(#{1,6}\s|>|```|\||\s*[-*]\s|\s*\d+\.\s)', lines[i]) and lines[i].strip() != "---":
+            para.append(inline(lines[i])); i += 1
+        if i == start:
+            # No progress: this line matched a block opener that its own branch
+            # declined (a bare ">", for instance). Emit it and move on, rather
+            # than looping forever.
             para.append(inline(lines[i])); i += 1
         out.append("<p>%s</p>" % " ".join(para))
     return "\n".join(out)
