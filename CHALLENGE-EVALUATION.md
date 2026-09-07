@@ -32,8 +32,6 @@ Both peers pointed at the workbook, not the code. One would adopt the per-cycle 
 
 **No peer named a weakness.** Praise is pleasant and it is not information, so the improvements come from my own record. I shared results after cycles closed, when predictions were already settled — feedback is worth most while a prediction is still open and my test can still be called weak. And I stopped writing predictions once I got curious: Cycle 6 has none, and it is the only cycle I cannot score. The workbook my peers valued only works because predictions come first, and I abandoned that exactly when the work got interesting.
 
-My mentor said my plan read like a building plan, not a learning plan. She was right, so I rewrote it around learning questions. My design mentor told me to draw the screens first, and to ask a tech mentor — that question produced Cycle 6.
-
 **Key takeaway: a passing test only proves what it actually checked.** My checks now state their own coverage — `AGREE — 6 durations compared; the final one skipped, because there is nothing after it to compare against`. A green result must say what it looked at, and what it did not.
 
 ---
