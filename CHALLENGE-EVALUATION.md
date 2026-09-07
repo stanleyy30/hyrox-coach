@@ -30,8 +30,6 @@ Cycle 4 was planned as the largest build in the project — a watch-to-phone tra
 
 Both peers pointed at the workbook, not the code. One would adopt the per-cycle summary of what was done and the gap. **The transferable thing was the method, not the app** — the right result for a learning challenge, and not what I expected.
 
-The workbook is written with AI help. What AI did not do is run the sessions, press the button while I was out of breath, or decide what to predict. The predictions and the device runs are mine.
-
 **No peer named a weakness.** Praise is pleasant and it is not information, so the improvements come from my own record. I shared results after cycles closed, when predictions were already settled — feedback is worth most while a prediction is still open and my test can still be called weak. And I stopped writing predictions once I got curious: Cycle 6 has none, and it is the only cycle I cannot score. The workbook my peers valued only works because predictions come first, and I abandoned that exactly when the work got interesting.
 
 My mentor said my plan read like a building plan, not a learning plan. She was right, so I rewrote it around learning questions. My design mentor told me to draw the screens first, and to ask a tech mentor — that question produced Cycle 6.
