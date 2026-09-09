@@ -132,7 +132,7 @@ grep -m1 DEVELOPMENT_TEAM HyroxCoach.xcodeproj/project.pbxproj
 
 ### Privacy
 
-A Team ID is not a secret in the way an API key is, but it identifies your developer account. Since this repository is private, putting the Team ID in `project.yml` is acceptable. If the repository is ever made public, keep `DEVELOPMENT_TEAM` out of `project.yml` and pass it at build time instead, for example:
+A Team ID is not a secret in the way an API key is, but it identifies your developer account. This repository is public, so `DEVELOPMENT_TEAM` is kept empty in `project.yml` and passed at build time instead, for example:
 
 ```bash
 xcodegen generate && xcodebuild -project HyroxCoach.xcodeproj -scheme HyroxCoachWatch DEVELOPMENT_TEAM=ABCDE12345 build
